@@ -1,6 +1,6 @@
 /* 絶エデン（FRU）フィールド床・ウェイマーク
  * 半径 20y。内側の円 10y 上に JP/ぬけまる式の時計マーカー（A 北・B 東・1 北東）。
- * 床は実機の砂時計円6つ・南北ラグビーボール・ダイヤ列に合わせる。
+ * 床は南北ラグビーボール・ダイヤ列・内側の円。砂時計の爆発円は AoE 表示。
  */
 (function (global) {
   'use strict';
@@ -14,7 +14,6 @@
     ['1', 45, '#e11d48', 'square'], ['2', 135, '#eab308', 'square'],
     ['3', 225, '#3b82f6', 'square'], ['4', 315, '#a855f7', 'square'],
   ];
-  const HG_FLOOR = [0, 60, 120, 180, 240, 300];
 
   function diamond(ctx, x, y, s, fill, stroke) {
     ctx.save();
@@ -53,23 +52,6 @@
     ctx.beginPath();
     ctx.arc(o.x, o.y, px(R), 0, Math.PI * 2);
     ctx.clip();
-
-    // 砂時計の円（実機の床に描いてあるメイルストローム範囲。中心 r=10、半径 8.5）
-    for (const deg of HG_FLOOR) {
-      const c = toPx(compass(deg, 10));
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, px(8.5), 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(72, 118, 148, 0.10)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(168, 214, 230, 0.38)';
-      ctx.lineWidth = 1.7;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, px(8.5) - 3, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(168, 214, 230, 0.14)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
 
     ctx.beginPath();
     ctx.arc(o.x, o.y, px(10), 0, Math.PI * 2);
@@ -211,7 +193,7 @@
 
   let floorCache = null, floorKey = '';
   function blitFloor(ctx, size, dpr, R, SCALE) {
-    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v4';
+    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v5';
     if (!floorCache || floorKey !== key) {
       const c = document.createElement('canvas');
       c.width = Math.round(size * dpr);

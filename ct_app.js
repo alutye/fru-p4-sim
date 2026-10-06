@@ -391,8 +391,12 @@
       const purs = pair('purple'); if (purs.length === 2) drawTether(purs[0], purs[1], 'rgba(192,132,252,0.85)');
       for (const h of alive) {
         const col = hgCol[h.kind];
-        const imminent = t >= h.at - 3.5;
-        circle(h.pos, CFG.HG_R, imminent ? (h.kind === 'yellow' ? 'rgba(245,214,87,0.20)' : h.kind === 'purple' ? 'rgba(192,132,252,0.18)' : 'rgba(148,163,184,0.14)') : 'rgba(255,255,255,0.03)', col, 2);
+        const until = h.at - t;
+        if (until <= 3.5) {
+          const a = until <= 0 ? 0.45 : 0.10 + (3.5 - until) / 3.5 * 0.22;
+          const fill = h.kind === 'yellow' ? `rgba(245,214,87,${a})` : h.kind === 'purple' ? `rgba(192,132,252,${a})` : `rgba(148,163,184,${a})`;
+          circle(h.pos, CFG.HG_R, fill, col, 2.5);
+        }
         const c = toPx(h.pos), s = 11;
         ctx.fillStyle = col;
         ctx.beginPath(); ctx.moveTo(c.x - s, c.y - s - 2); ctx.lineTo(c.x + s, c.y - s - 2); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill();
