@@ -121,8 +121,6 @@
     for (const [name, deg, color, shape] of MARKS) {
       const c = toPx(compass(deg, WAYMARK_R));
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.55)';
-      ctx.shadowBlur = 6;
       if (shape === 'circle') {
         ctx.beginPath();
         ctx.arc(c.x, c.y, s, 0, Math.PI * 2);
@@ -131,7 +129,6 @@
       }
       ctx.fillStyle = color;
       ctx.fill();
-      ctx.shadowBlur = 0;
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';
       ctx.lineWidth = 1.6;
       ctx.stroke();
@@ -144,5 +141,25 @@
     }
   }
 
-  global.EdenArena = { WAYMARK_R, MARKS, compass, drawFloor, drawWaymarks };
+  let floorCache = null, floorKey = '';
+  function blitFloor(ctx, size, dpr, R, SCALE) {
+    const key = size + ':' + dpr + ':' + R + ':' + SCALE;
+    if (!floorCache || floorKey !== key) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(size * dpr);
+      c.height = Math.round(size * dpr);
+      const cctx = c.getContext('2d');
+      cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const toPx = p => ({ x: size / 2 + p.x * SCALE, y: size / 2 + p.y * SCALE });
+      drawFloor(cctx, toPx, R, SCALE);
+      floorCache = c;
+      floorKey = key;
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(floorCache, 0, 0);
+    ctx.restore();
+  }
+
+  global.EdenArena = { WAYMARK_R, MARKS, compass, drawFloor, drawWaymarks, blitFloor };
 })(typeof window !== 'undefined' ? window : globalThis);

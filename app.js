@@ -20,7 +20,7 @@
 
   // 高解像度ディスプレイ対応（論理サイズは SIZE のまま）
   function fitCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(SIZE * dpr);
     if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
   }
@@ -129,7 +129,7 @@
 
   // ---- main loop ----
   function loop(now) {
-    let dt = Math.min(0.05, (now - last) / 1000);
+    let dt = Math.min(1 / 30, (now - last) / 1000);
     last = now;
     if (running && !paused && !sim.done) {
       readInput();
@@ -228,7 +228,7 @@
     ctx.clearRect(0, 0, SIZE, SIZE);
     const showHint = ui.hint.checked && sim.user >= 0;
 
-    window.EdenArena.drawFloor(ctx, toPx, CFG.R, SCALE);
+    window.EdenArena.blitFloor(ctx, SIZE, dpr, CFG.R, SCALE);
     if (showHint && t >= T.WING_CAST && t < T.WING) halfPlane(sim.sc.wingCleave, 'rgba(255,120,80,0.10)');
     window.EdenArena.drawWaymarks(ctx, toPx);
 

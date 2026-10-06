@@ -19,7 +19,7 @@
   };
 
   function fitCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(SIZE * dpr);
     if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
   }
@@ -118,7 +118,7 @@
   }
 
   function loop(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const dt = Math.min(1 / 30, (now - last) / 1000);
     last = now;
     if (running && !paused && !sim.done) { readInput(); sim.update(dt * timeScale); }
     draw();
@@ -370,7 +370,7 @@
     ctx.clearRect(0, 0, SIZE, SIZE);
     const showHint = ui.hint.checked && sim.user >= 0;
 
-    window.EdenArena.drawFloor(ctx, toPx, CFG.R, SCALE);
+    window.EdenArena.blitFloor(ctx, SIZE, dpr, CFG.R, SCALE);
 
     // 未来の欠片
     circle(CFG.FRAGMENT, CFG.FRAGMENT_R, 'rgba(255,255,220,0.35)', 'rgba(255,240,180,0.95)', 2);
