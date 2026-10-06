@@ -252,14 +252,31 @@
     circle(CFG.FRAGMENT, CFG.FRAGMENT_R, 'rgba(255,255,220,0.35)', 'rgba(255,240,180,0.95)', 2);
     text('欠片', CFG.FRAGMENT, '#fff6c8', 11, -CFG.FRAGMENT_R * SCALE - 10);
 
-    // 砂時計
-    if (t >= T.DEBUFF) {
-      for (const h of sim.hourglass) {
-        if (h.exploded) continue;
-        const col = h.kind === 'yellow' ? 'rgba(255,220,80,0.85)' : h.kind === 'purple' ? 'rgba(180,120,255,0.85)' : 'rgba(180,200,220,0.7)';
-        const fill = t >= h.at - 3.5 ? (h.kind === 'yellow' ? 'rgba(255,220,80,0.18)' : h.kind === 'purple' ? 'rgba(180,120,255,0.16)' : 'rgba(180,200,220,0.12)') : 'rgba(255,255,255,0.04)';
-        circle(h.pos, CFG.HG_R, fill, col, 2);
-        circle(h.pos, 0.7, col);
+    // 砂時計（常時表示。黄=南北、紫=対角、線なし=残り）
+    const hgCol = { yellow: '#f5d657', purple: '#c084fc', none: '#94a3b8' };
+    if (t >= T.START) {
+      const alive = sim.hourglass.filter(h => !h.exploded);
+      const pair = (kind) => alive.filter(h => h.kind === kind);
+      const drawTether = (a, b, color) => {
+        const pa = toPx(a.pos), pb = toPx(b.pos);
+        ctx.strokeStyle = color; ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      };
+      const yels = pair('yellow'); if (yels.length === 2) drawTether(yels[0], yels[1], 'rgba(245,214,87,0.85)');
+      const purs = pair('purple'); if (purs.length === 2) drawTether(purs[0], purs[1], 'rgba(192,132,252,0.85)');
+      for (const h of alive) {
+        const col = hgCol[h.kind];
+        const imminent = t >= h.at - 3.5;
+        circle(h.pos, CFG.HG_R, imminent ? (h.kind === 'yellow' ? 'rgba(245,214,87,0.20)' : h.kind === 'purple' ? 'rgba(192,132,252,0.18)' : 'rgba(148,163,184,0.14)') : 'rgba(255,255,255,0.03)', col, 2);
+        const c = toPx(h.pos), s = 11;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.moveTo(c.x - s, c.y - s - 2); ctx.lineTo(c.x + s, c.y - s - 2); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(c.x - s, c.y + s + 2); ctx.lineTo(c.x + s, c.y + s + 2); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#0f1218'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(c.x - s, c.y - s - 2); ctx.lineTo(c.x + s, c.y - s - 2); ctx.lineTo(c.x, c.y); ctx.lineTo(c.x + s, c.y + s + 2); ctx.lineTo(c.x - s, c.y + s + 2); ctx.closePath(); ctx.stroke();
+        const label = h.kind === 'yellow' ? '黄' : h.kind === 'purple' ? '紫' : '線なし';
+        text(label, h.pos, '#fff', 11, s + 14);
       }
     }
 
