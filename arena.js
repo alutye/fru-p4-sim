@@ -8,6 +8,9 @@
   function compass(deg, r) { const a = deg * D2R; return { x: r * Math.sin(a), y: -r * Math.cos(a) }; }
 
   const WAYMARK_R = 10;
+  // 内側の円の東西南北にあるラグビー（3粒）。散会はその外側の先端
+  const RUGBY_PIPS = [5.05, 6.75, 8.5];
+  const RUGBY_TIP = RUGBY_PIPS[2];
   const MARKS = [
     ['A', 0, '#e11d48', 'circle'], ['B', 90, '#eab308', 'circle'],
     ['C', 180, '#3b82f6', 'circle'], ['D', 270, '#a855f7', 'circle'],
@@ -95,6 +98,36 @@
     ctx.fillStyle = 'rgba(245, 250, 255, 0.55)';
     ctx.fill();
 
+    for (const deg of [0, 90, 180, 270]) {
+      const a0 = toPx(compass(deg, RUGBY_PIPS[0]));
+      const a2 = toPx(compass(deg, RUGBY_PIPS[2]));
+      const mid = { x: (a0.x + a2.x) / 2, y: (a0.y + a2.y) / 2 };
+      const ang = Math.atan2(a2.y - a0.y, a2.x - a0.x);
+      ctx.save();
+      ctx.translate(mid.x, mid.y);
+      ctx.rotate(ang);
+      const hl = px((RUGBY_PIPS[2] - RUGBY_PIPS[0]) / 2 + 0.82);
+      const hw = px(0.88);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, hl, hw, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(130, 185, 235, 0.18)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(200, 228, 255, 0.62)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+      for (const rr of RUGBY_PIPS) {
+        const p = toPx(compass(deg, rr));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, px(0.7), 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(165, 210, 245, 0.4)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(220, 240, 255, 0.75)';
+        ctx.lineWidth = 1.15;
+        ctx.stroke();
+      }
+    }
+
     ctx.restore();
 
     ctx.beginPath();
@@ -147,7 +180,7 @@
 
   let floorCache = null, floorKey = '';
   function blitFloor(ctx, size, dpr, R, SCALE) {
-    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v7';
+    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v8';
     if (!floorCache || floorKey !== key) {
       const c = document.createElement('canvas');
       c.width = Math.round(size * dpr);
@@ -165,5 +198,5 @@
     ctx.restore();
   }
 
-  global.EdenArena = { WAYMARK_R, MARKS, compass, drawFloor, drawWaymarks, blitFloor };
+  global.EdenArena = { WAYMARK_R, RUGBY_PIPS, RUGBY_TIP, MARKS, compass, drawFloor, drawWaymarks, blitFloor };
 })(typeof window !== 'undefined' ? window : globalThis);

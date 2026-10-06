@@ -149,8 +149,8 @@
       if (dSwap !== undefined) waypoint[dSwap] = { x: Math.sign(LINEUP[dSwap].x) * 8, y: 0 };
     }
 
-    // フェーズB: テイカー散開（マーカー間）
-    const SR = 14;
+    // フェーズB: テイカー散会（マーカー間・ラグビー先端）
+    const SR = 8.5;
     const spot = {};
     const nf = northFan.slice().sort((a, b) => A[a].x - A[b].x), sf = southFan.slice().sort((a, b) => A[a].x - A[b].x);
     spot[nf[0]] = 292.5; spot[northPair[0]] = 337.5; spot[northPair[1]] = 22.5; spot[nf[1]] = 67.5;
@@ -247,7 +247,7 @@
         const f = as.fanInfo[i];
         return `鎖なし → 扇誘導。リーンのタゲサ内の${f.ns}${f.ew}に立つ（基本: TH北・DPS南）${swap}`;
       }
-      if (k === 'B') return `テイカー散開 → マーカー間 ${SPOT_NAME[as.spot[i]]} へ`;
+      if (k === 'B') return `テイカー散会 → マーカー間 ${SPOT_NAME[as.spot[i]]} のラグビー先端へ`;
       if (k === 'C') return `羽が光った側（${this.cleaveSideName()}）が焼かれる → 安地=${this.safeSideName()}側の${this.groupOf(i)}グループで4人頭割り`;
       if (k === 'D') {
         if (i === 0) return `宵闇の舞踏技 → 無敵を使って${this.safeSideName()}の外周（${this.safeSideName() === '東' ? 'B' : 'D'}）へ。1段目=最遠、2段目=最近をMTが受ける`;

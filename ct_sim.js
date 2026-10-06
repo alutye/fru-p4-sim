@@ -22,6 +22,7 @@
     HEAD_R: 12.5,          // 竜頭の移動半径（砂時計・マーカーの円 10y のすぐ外側）
     HEAD_SPEED: 6.2,      // 竜頭の角速度 (deg/s)。90°到達≒14.5s（ブリザガと同時）
     HEAD_TOUCH: 2.2,
+    RUGBY_TIP: 8.5,        // 内側の円のラグビー外側先端（ぬけまる散会）
     LONGING_R: 5.5,       // 竜頭接触時の爆発
     PUDDLE_R: 2.0,
     PUDDLE_UNTIL: 46,
@@ -94,7 +95,7 @@
     const aeroSide = {}; aeroSide[redAero[0]] = -1; aeroSide[redAero[1]] = 1;  // 優先度高→南西
     const eruptInit = { x: pn * 14.5, y: -12.8 };
     const southWall = compass(ps < 0 ? 225 : 135, 18.8);
-    const A = compass(ps < 0 ? 225 : 135, 12);
+    const A = compass(ps < 0 ? 225 : 135, 10);
     const L = compass(pn > 0 ? 45 : 315, 15.3);
     const u = unit({ x: L.x - A.x, y: L.y - A.y });
     const perp = { x: -u.y, y: u.x };
@@ -125,7 +126,7 @@
     const base = { 0: 337.5, 1: 22.5, 2: 292.5, 3: 67.5, 4: 247.5, 5: 112.5, 6: 202.5, 7: 157.5 };
     const rot = sc.tidal2 === 'S' ? 180 : 0;
     const spread = {};
-    for (const i in base) spread[i] = compass(base[i] + rot, 11);
+    for (const i in base) spread[i] = compass(base[i] + rot, CFG.RUGBY_TIP);
 
     return { redIce, redAero, pn, ps, iceSide, aeroSide, eruptInit, southWall, A, L, u, bluesInit, kbSpot, landSpot, eruptIdx, eruptSideIce, assignedAero, n, o1, kb1Tank, kb2Tank, ret, spread, cx, cy };
   }
@@ -277,11 +278,13 @@
         const wall = { x: side * 19, y: 0 };
         const head = this.heads.find(h => h.alive && Math.sign(h.dir || 1) === Math.sign(side));
         if (!p.popped && t < T.CLAW_ICE) {
+          const wait = { x: side * CFG.RUGBY_TIP, y: 0 };
           if (dash && t >= T.MOST - 2) {
             if (head) return { x: head.x, y: head.y };
             return compass(side > 0 ? 55 : 305, CFG.HEAD_R);
           }
-          return { x: side * CFG.HEAD_R, y: 0 };
+          if (!dash && head && dist(wait, head) <= CFG.HEAD_TOUCH + 2.5) return { x: head.x, y: head.y };
+          return wait;
         }
         if (dash) {
           if (t < T.TIDAL1_ANN) return NORTH_SAFE;
@@ -336,7 +339,7 @@
         if (i === as.kb2Tank && t < T.KB2) return `${this.tidalName(2)}からの2発目を先頭で受ける（軽減）`;
         return 'リターンで戻される。アムレン＋軽減で2回のノックバックを受ける';
       }
-      if (t >= T.RETURN_SNAP) return `リターン設置完了 → テイカー散開（${this.tidalName(2)}基準の基本散開 / 未来の欠片に当てない）`;
+      if (t >= T.RETURN_SNAP) return `リターン設置完了 → テイカー散会（ラグビー先端 / ${this.tidalName(2)}基準 / 未来の欠片に当てない）`;
       if (t >= T.TIDAL2[3] || (p.cleansed && t >= T.TIDAL2_ANN) || (!p.blue && t >= T.TIDAL2_ANN && p.popped)) {
         const spot = i === 0 ? '角の1発目側（前列）' : i === 1 ? '角の2発目側（前列）' : '角の内側';
         return `残りの光の波を避けて、${this.tidalName(2)}を「北」としたY字でリターン設置 → ${spot}`;
@@ -347,10 +350,10 @@
         const mark = side > 0 ? 'B' : 'D';
         if (!p.popped) {
           if (dash) {
-            if (t < T.MOST - 2) return `赤・${sp} → 爆走確定（エラプは${this.sideName(as.pn)}側）。${this.sideName(side)}（${mark}）真横で待機。ブリザガ2秒前にスプリント`;
+            if (t < T.MOST - 2) return `赤・${sp} → 爆走確定（エラプは${this.sideName(as.pn)}側）。${this.sideName(side)}（${mark}）のラグビー先端で待機。ブリザガ2秒前にスプリント`;
             return `爆走！北へ走って竜頭に当たり、未来の欠片へ（ブリザガ残${Math.max(0, this.remain(i, 'spell')).toFixed(0)}s）`;
           }
-          return `赤・${sp} → 爆走しない（エラプが前にいる）。${this.sideName(side)}（${mark}）真横で待機。竜頭が当たりに来る`;
+          return `赤・${sp} → 爆走しない（エラプが前にいる）。${this.sideName(side)}（${mark}）のラグビー先端で待機。竜頭が当たりに来る`;
         }
         if (dash) return t < T.TIDAL1_ANN ? `竜頭に当たった → 未来の欠片／北安置へ（ブリザガで味方を巻き込まない）` : `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西'}）を避ける`;
         if (t < T.MOST) return `ブリザガ着弾まで動かない（ドーナツ範囲に味方を巻き込まない）`;
@@ -361,7 +364,7 @@
         const side = as.aeroSide[i];
         const sideN = side < 0 ? '南西' : '南東';
         if (t < T.YELLOW) return `赤・${sp} → ${sideN}の外周（砂時計の円の外）で待機${side === as.ps ? '。青3人が自分の前に集まる' : '（1人）'}`;
-        if (t < T.MOST) return side === as.ps ? `黄砂時計の爆発後、円の内側の先端へ。青3人を北の反対側（エラプ）へ飛ばす（${this.remain(i, 'spell').toFixed(0)}s）` : `その場で待機（エアロガ着弾まで動かない）`;
+        if (t < T.MOST) return side === as.ps ? `黄砂時計の爆発後、内側の円のラグビー先端へ。青3人を北の反対側（エラプ）へ飛ばす（${this.remain(i, 'spell').toFixed(0)}s）` : `その場で待機（エアロガ着弾まで動かない）`;
         if (!p.popped) return `${sideN}の外周で竜頭を待って当たる（${this.remain(i, 'color').toFixed(0)}s）。周りに人がいないこと`;
         return `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西'}）を避けつつ、${t >= T.TIDAL2_ANN ? 'リターン設置へ' : '安地へ'}`;
       }
