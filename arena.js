@@ -1,6 +1,6 @@
 /* 絶エデン（FRU）フィールド床・ウェイマーク
  * 半径 20y。内側の円 10y 上に JP/ぬけまる式の時計マーカー（A 北・B 東・1 北東）。
- * 床は南北ラグビーボール・ダイヤ列・内側の円。砂時計の爆発円は AoE 表示。
+ * 床は実機どおりフラワー・オブ・ライフ（半径10の円を六方に重ねる）。
  */
 (function (global) {
   'use strict';
@@ -15,37 +15,14 @@
     ['3', 225, '#3b82f6', 'square'], ['4', 315, '#a855f7', 'square'],
   ];
 
-  function diamond(ctx, x, y, s, fill, stroke) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.PI / 4);
-    ctx.beginPath();
-    ctx.rect(-s, -s, s * 2, s * 2);
-    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.1; ctx.stroke(); }
-    ctx.restore();
-  }
-
-  function star(ctx, x, y, r, fill) {
-    ctx.beginPath();
-    for (let i = 0; i < 16; i++) {
-      const a = -Math.PI / 2 + i * Math.PI / 8;
-      const rad = i % 2 === 0 ? r : r * 0.38;
-      const px = x + rad * Math.cos(a), py = y + rad * Math.sin(a);
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-  }
-
   function drawFloor(ctx, toPx, R, SCALE) {
     const o = toPx({ x: 0, y: 0 });
     const px = r => r * SCALE;
+    const ring = 10;
 
     ctx.beginPath();
     ctx.arc(o.x, o.y, px(R), 0, Math.PI * 2);
-    ctx.fillStyle = '#101820';
+    ctx.fillStyle = '#17356a';
     ctx.fill();
 
     ctx.save();
@@ -53,104 +30,81 @@
     ctx.arc(o.x, o.y, px(R), 0, Math.PI * 2);
     ctx.clip();
 
+    const glow = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, px(ring));
+    glow.addColorStop(0, 'rgba(240, 248, 255, 0.62)');
+    glow.addColorStop(0.1, 'rgba(190, 215, 255, 0.22)');
+    glow.addColorStop(0.4, 'rgba(90, 140, 210, 0.07)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.beginPath();
-    ctx.arc(o.x, o.y, px(10), 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(24, 40, 56, 0.62)';
+    ctx.arc(o.x, o.y, px(ring), 0, Math.PI * 2);
+    ctx.fillStyle = glow;
     ctx.fill();
 
-    // 南北ラグビーボール
-    ctx.beginPath();
-    ctx.ellipse(o.x, o.y, px(10.3), px(18.7), 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(210, 228, 236, 0.55)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(o.x, o.y, px(9.35), px(17.3), 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(180, 205, 220, 0.22)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // 東西の薄い楕円（交差して花弁に見える）
-    ctx.beginPath();
-    ctx.ellipse(o.x, o.y, px(18.7), px(10.3), 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(170, 200, 215, 0.18)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    const rings = [
-      [3.4, 'rgba(170, 195, 210, 0.22)', 1],
-      [5.6, 'rgba(200, 185, 130, 0.28)', 1.1],
-      [10, 'rgba(232, 205, 130, 0.88)', 2.6],
-      [14.6, 'rgba(160, 195, 215, 0.28)', 1.2],
-      [18.3, 'rgba(175, 205, 220, 0.34)', 1.5],
-    ];
-    for (const [r, col, w] of rings) {
+    ctx.strokeStyle = 'rgba(150, 190, 235, 0.22)';
+    ctx.lineWidth = 1;
+    const cell = 2;
+    for (let v = -R; v <= R; v += cell) {
+      const a = toPx({ x: v, y: -R });
+      const b = toPx({ x: v, y: R });
       ctx.beginPath();
-      ctx.arc(o.x, o.y, px(r), 0, Math.PI * 2);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      const c = toPx({ x: -R, y: v });
+      const d = toPx({ x: R, y: v });
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(220, 235, 255, 0.16)';
+    ctx.lineWidth = 1;
+    for (let deg = 0; deg < 360; deg += 15) {
+      const p = toPx(compass(deg, ring));
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    function strokeCirc(deg, dist, rad, col, w) {
+      const c = dist === 0 ? o : toPx(compass(deg, dist));
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, px(rad), 0, Math.PI * 2);
       ctx.strokeStyle = col;
       ctx.lineWidth = w;
       ctx.stroke();
     }
 
-    for (let deg = 0; deg < 360; deg += 15) {
-      const inner = deg % 90 === 0 ? 9.35 : 9.55;
-      const outer = deg % 90 === 0 ? 10.65 : 10.42;
-      const a = toPx(compass(deg, inner));
-      const b = toPx(compass(deg, outer));
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = deg % 90 === 0 ? 'rgba(232,205,130,0.7)' : 'rgba(200, 220, 230, 0.32)';
-      ctx.lineWidth = deg % 90 === 0 ? 1.7 : 1;
-      ctx.stroke();
-    }
+    const lace = 'rgba(210, 230, 255, 0.62)';
+    const laceSoft = 'rgba(186, 214, 245, 0.32)';
+    strokeCirc(0, 0, ring, lace, 1.7);
+    for (let deg = 0; deg < 360; deg += 60) strokeCirc(deg, ring, ring, lace, 1.55);
+    for (let deg = 30; deg < 360; deg += 60) strokeCirc(deg, ring * Math.sqrt(3), ring, laceSoft, 1.25);
+    for (let deg = 0; deg < 360; deg += 60) strokeCirc(deg, ring * 2, ring, laceSoft, 1.15);
 
-    // ラグビー／風待ちで使う中央線（南北・南東・南西）
-    for (const deg of [0, 135, 180, 225]) {
-      const a = toPx(compass(deg, 4));
-      const b = toPx(compass(deg, R));
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = 'rgba(200, 220, 230, 0.16)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    // ダイヤ列（大→小。赤風が「大きいダイヤから南へ2つ」と数える目印）
-    const pipR = [11.4, 13.35, 15.25, 17.15];
-    const pipS = [4.4, 3.3, 2.6, 2.15];
-    for (let d = 0; d < 360; d += 45) {
-      for (let i = 0; i < pipR.length; i++) {
-        const p = toPx(compass(d, pipR[i]));
-        const aero = d === 135 || d === 225;
-        diamond(ctx, p.x, p.y, pipS[i],
-          aero ? 'rgba(200, 230, 240, 0.34)' : 'rgba(175, 205, 220, 0.18)',
-          aero ? 'rgba(220, 240, 250, 0.55)' : 'rgba(180, 210, 225, 0.28)');
-      }
-    }
-
-    star(ctx, o.x, o.y, px(1.55), 'rgba(232, 205, 130, 0.55)');
     ctx.beginPath();
-    ctx.arc(o.x, o.y, px(2.15), 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(232,205,130,0.45)';
-    ctx.lineWidth = 1.4;
+    ctx.arc(o.x, o.y, px(ring), 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(230, 240, 255, 0.92)';
+    ctx.lineWidth = 2.2;
     ctx.stroke();
+
     ctx.beginPath();
-    ctx.arc(o.x, o.y, px(0.55), 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(232,205,130,0.7)';
+    ctx.arc(o.x, o.y, px(1.35), 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(245, 250, 255, 0.55)';
     ctx.fill();
 
     ctx.restore();
 
     ctx.beginPath();
     ctx.arc(o.x, o.y, px(R), 0, Math.PI * 2);
-    ctx.strokeStyle = '#8b9bb4';
+    ctx.strokeStyle = '#8aa4d4';
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(o.x, o.y, px(R) - 4, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(180, 210, 225, 0.45)';
+    ctx.strokeStyle = 'rgba(170, 200, 230, 0.4)';
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -193,7 +147,7 @@
 
   let floorCache = null, floorKey = '';
   function blitFloor(ctx, size, dpr, R, SCALE) {
-    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v5';
+    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v7';
     if (!floorCache || floorKey !== key) {
       const c = document.createElement('canvas');
       c.width = Math.round(size * dpr);
