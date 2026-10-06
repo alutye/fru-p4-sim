@@ -347,7 +347,21 @@
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '14px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(t < 0 ? `詠唱中 ${(-t).toFixed(1)}s` : `T+${t.toFixed(1)}s`, 12, 10);
     ctx.fillText(PHASE_NAME[sim.phaseKey(t)], 12, 30);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+    let cast = null;
+    if (t < T.DEBUFF) cast = ['時間結晶', (t - T.START) / (T.DEBUFF - T.START)];
+    else if (t >= T.TIDAL1_ANN && t < T.TIDAL1[0]) cast = ['光の波', (t - T.TIDAL1_ANN) / (T.TIDAL1[0] - T.TIDAL1_ANN)];
+    else if (t >= T.TIDAL2_ANN && t < T.TIDAL2[0]) cast = ['光の波', (t - T.TIDAL2_ANN) / (T.TIDAL2[0] - T.TIDAL2_ANN)];
+    else if (t >= T.TAKER_MARK && t < T.TAKER) cast = ['スピリットテイカー', (t - T.TAKER_MARK) / (T.TAKER - T.TAKER_MARK)];
+    else if (t >= T.RETURN_SNAP && t < T.RETURN) cast = ['リターン', (t - T.RETURN_SNAP) / (T.RETURN - T.RETURN_SNAP)];
+    if (cast) {
+      const w = 260, h = 14, x = SIZE / 2 - w / 2, y = 12;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#f2c94c'; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, cast[1])), h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = '#fff'; ctx.font = '13px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(cast[0], SIZE / 2, y + h + 4);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText('北↑ / 東→', SIZE - 12, 10);
 
     if (ui.hint.checked && running && !sim.done && sim.user >= 0) {
