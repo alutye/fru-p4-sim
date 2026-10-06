@@ -48,6 +48,8 @@
 
   const SPELL_NAME = { aeroR: 'エアロガ', iceR: 'ブリザガ', iceB: 'ブリザガ', waterB: 'ウォタガ', unholyB: 'ダークホーリー', eruptB: 'ダークエラプション' };
   const SPELL_SHORT = { aeroR: '風', iceR: '氷', iceB: '氷', waterB: '水', unholyB: '聖', eruptB: '爆' };
+  // ぬけまる／野良：青が attack me → 1=B, 2=2, 3=3, 4=D
+  const ATTACK_MARK = { iceB: 1, unholyB: 2, waterB: 3, eruptB: 4 };
   const PUDDLE_MARK = { iceB: 'B（東）', unholyB: '2（南東）', waterB: '3（南西）', eruptB: 'D（西）' };
 
   function compass(deg, r) { const a = deg * D2R; return { x: r * Math.sin(a), y: -r * Math.cos(a) }; }
@@ -351,16 +353,16 @@
         return `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西'}）を避けつつ、${t >= T.TIDAL2_ANN ? 'リターン設置へ' : '安地へ'}`;
       }
       if (p.spell === 'eruptB') {
-        if (t < T.MOST) return `青・${sp} → 紫線の北側（${this.sideName(as.pn)}）の外周、円の外で待機（${this.remain(i, 'spell').toFixed(0)}s）`;
+        if (t < T.MOST) return `青・${sp}（攻撃${ATTACK_MARK.eruptB}） → 紫線の北側（${this.sideName(as.pn)}）の外周、円の外で待機（${this.remain(i, 'spell').toFixed(0)}s）`;
         if (t < T.UNTETH) return `エラプ着弾後、少し内側へ → 飛んでくる青3人＋赤氷とダークホーリー頭割り（5人）`;
-        if (!p.cleansed) return `白円を取りに行く → ${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
+        if (!p.cleansed) return `白円を取りに行く → 攻撃${ATTACK_MARK[p.spell]}＝${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
         return `解除完了 → 光の波を避けて ${this.cornerName()} 側へ`;
       }
       // 青（氷・水・聖）
-      if (t < T.YELLOW) return `青・${sp} → 紫線の南側（${this.sideName(as.ps)}）の外周で赤エアロガと一緒に待機（ウォタガ頭割り）`;
+      if (t < T.YELLOW) return `青・${sp}（攻撃${ATTACK_MARK[p.spell]}） → 紫線の南側（${this.sideName(as.ps)}）の外周で赤エアロガと一緒に待機（ウォタガ頭割り）`;
       if (t < T.MOST) return `黄砂時計の爆発後、エアロガ担当の前（北の反対側に向かって一直線）に立つ → 吹き飛ばされる`;
       if (t < T.UNTETH) return `飛んだ先でエラプ＋赤氷と頭割り（ダークホーリー）`;
-      if (!p.cleansed) return `白円を取りに行く → ${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
+      if (!p.cleansed) return `白円を取りに行く → 攻撃${ATTACK_MARK[p.spell]}＝${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
       return `解除完了 → 光の波を避けて ${this.cornerName()} 側へ`;
     }
 
@@ -585,7 +587,7 @@
     }
   }
 
-  const api = { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, PUDDLE_MARK, PUDDLE_NOMINAL, START_POS, NORTH_SAFE, compass, dist, genScenario, computeAssignments };
+  const api = { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, ATTACK_MARK, PUDDLE_MARK, PUDDLE_NOMINAL, START_POS, NORTH_SAFE, compass, dist, genScenario, computeAssignments };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.CrystallizeSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

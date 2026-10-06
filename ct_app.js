@@ -1,7 +1,7 @@
 /* 時間結晶 描画・操作 */
 (function () {
   'use strict';
-  const { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, compass, dist } = window.CrystallizeSim;
+  const { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, ATTACK_MARK, compass, dist } = window.CrystallizeSim;
 
   const canvas = document.getElementById('arena');
   const ctx = canvas.getContext('2d');
@@ -201,6 +201,152 @@
     return lines;
   }
 
+  /** FF14の攻撃マーカー（頭上の赤い数字） */
+  function drawAttackMark(px, py, n) {
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.beginPath();
+    const spikes = 8, R = 11, r = 6.5;
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+      const rad = i % 2 === 0 ? R : r;
+      const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#c2410c';
+    ctx.fill();
+    ctx.strokeStyle = '#fed7aa';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 6.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#9a3412'; ctx.fill();
+    ctx.fillStyle = '#fff7ed';
+    ctx.font = 'bold 11px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(n), 0, 0.5);
+    ctx.restore();
+  }
+
+  function drawLockOn(px, py, r, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+    const L = Math.max(7, r * 0.35);
+    const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    for (const [sx, sy] of corners) {
+      const x = px + sx * r, y = py + sy * r;
+      ctx.beginPath();
+      ctx.moveTo(x, y + sy * L);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + sx * L, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawDragonHead(h) {
+    const c = toPx(h);
+    const r = 1.4 * SCALE;
+    circle(h, 1.4, '#f8fafc', '#fde68a', 2.5);
+    drawLockOn(c.x, c.y, r + 7, '#facc15');
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 11px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('竜', c.x, c.y);
+    const side = h.dir > 0 ? '東' : '西';
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 10px "Segoe UI", sans-serif';
+    ctx.fillText(side, c.x, c.y + r + 16);
+    // 頭上の菱形マーカー
+    ctx.save();
+    ctx.translate(c.x, c.y - r - 14);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(-7, -7, 14, 14);
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-7, -7, 14, 14);
+    ctx.restore();
+  }
+
+  function drawStackIcon(px, py, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.6;
+    for (const [dx, dy] of [[-5, 2], [5, 2], [0, -4]]) {
+      ctx.beginPath(); ctx.arc(px + dx, py + dy, 4.5, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSpreadIcon(px, py, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(a) * 7, py + Math.sin(a) * 7);
+      ctx.lineTo(px + Math.cos(a) * 12, py + Math.sin(a) * 12);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawKnockIcon(px, py, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.6;
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const x = px + Math.cos(a) * 6, y = py + Math.sin(a) * 6;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(a) * 2, py + Math.sin(a) * 2);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - Math.cos(a - 0.5) * 4, y - Math.sin(a - 0.5) * 4);
+      ctx.lineTo(x - Math.cos(a + 0.5) * 4, y - Math.sin(a + 0.5) * 4);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawTakerMark(px, py) {
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.fillStyle = '#a855f7';
+    ctx.beginPath();
+    ctx.moveTo(0, -11);
+    ctx.lineTo(9, 7);
+    ctx.lineTo(-9, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#f5d0fe';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#faf5ff';
+    ctx.font = 'bold 10px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('跳', 0, 1);
+    ctx.restore();
+  }
+
+  /** 頭割り／散開／ノックバックの頭上マーカー */
+  function drawMechMark(p, c, t, T) {
+    const x = c.x + 16;
+    const y = c.y - 0.7 * SCALE - 11;
+    if (p.spell === 'unholyB' && t < T.UNTETH) drawStackIcon(x, y, '#fde047');
+    else if (p.spell === 'waterB' && t < T.YELLOW) drawStackIcon(x, y, '#60a5fa');
+    else if (p.spell === 'eruptB' && t < T.MOST) drawSpreadIcon(x, y, '#c084fc');
+    else if (p.spell === 'aeroR' && t < T.MOST) drawKnockIcon(x, y, '#86efac');
+  }
+
   function drawBand(d, lo, hi, fill) {
     ctx.save(); clipArena();
     const a = toPx({ x: d.x * lo, y: d.y * lo });
@@ -312,11 +458,10 @@
       circle(pd, CFG.PUDDLE_R, 'rgba(255,255,255,0.55)', '#ffffff', 2);
     }
 
-    // 竜頭
+    // 竜頭（ロックオン＋進行方向）
     for (const h of sim.heads) {
       if (!h.alive) continue;
-      circle(h, 1.4, '#f8fafc', '#fde68a', 2);
-      text('竜', h, '#1e293b', 11, 0);
+      drawDragonHead(h);
     }
 
     // リーン（光の波の始点）
@@ -343,19 +488,25 @@
     for (let i = 0; i < 8; i++) {
       const p = sim.pl[i];
       const isUser = i === sim.user;
+      const c = toPx(p);
       circle(p, 0.95, null, p.red ? 'rgba(248,113,113,0.95)' : 'rgba(96,165,250,0.95)', 2.5);
       circle(p, 0.7, ROLE_COLOR[ROLE_TYPE[i]], isUser ? '#ffffff' : 'rgba(0,0,0,0.6)', isUser ? 3 : 1.5);
       text(ROLES[i], p, '#ffffff', 10, 0);
       if (t >= 0) {
-        const c = toPx(p);
+        drawMechMark(p, c, t, T);
         ctx.fillStyle = SPELL_COLOR[p.spell];
-        ctx.beginPath(); ctx.arc(c.x, c.y - 0.7 * SCALE - 12, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, c.y - 0.7 * SCALE - 11, 8, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#0f172a'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(SPELL_SHORT[p.spell], c.x, c.y - 0.7 * SCALE - 12);
+        ctx.fillText(SPELL_SHORT[p.spell], c.x, c.y - 0.7 * SCALE - 11);
+        const atk = ATTACK_MARK[p.spell];
+        if (atk) drawAttackMark(c.x, c.y - 0.7 * SCALE - 34, atk);
+      }
+      if (t >= T.TAKER_MARK && t < T.TAKER && i === sim.sc.taker) {
+        const extra = ATTACK_MARK[p.spell] ? 56 : 34;
+        drawTakerMark(c.x, c.y - 0.7 * SCALE - extra);
       }
       if (isUser) text('YOU', p, '#ffffff', 10, 0.7 * SCALE + 9);
       if (sim.fails[i].length) {
-        const c = toPx(p);
         ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(c.x - 9, c.y - 9); ctx.lineTo(c.x + 9, c.y + 9); ctx.moveTo(c.x + 9, c.y - 9); ctx.lineTo(c.x - 9, c.y + 9); ctx.stroke();
       }
