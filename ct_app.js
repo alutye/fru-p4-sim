@@ -370,29 +370,7 @@
     ctx.clearRect(0, 0, SIZE, SIZE);
     const showHint = ui.hint.checked && sim.user >= 0;
 
-    circle({ x: 0, y: 0 }, CFG.R, '#1b2233', '#3a4660', 3);
-    ctx.save(); clipArena();
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
-    for (let k = -20; k <= 20; k += 5) {
-      const a = toPx({ x: k, y: -CFG.R }), b = toPx({ x: k, y: CFG.R });
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      const c = toPx({ x: -CFG.R, y: k }), d = toPx({ x: CFG.R, y: k });
-      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
-    }
-    ctx.restore();
-
-    const MR = 16;
-    const marks = [
-      ['A', 0, '#f26b6b', 'circle'], ['B', 90, '#f2d16b', 'circle'], ['C', 180, '#6bb3f2', 'circle'], ['D', 270, '#c86bf2', 'circle'],
-      ['1', 45, '#f26b6b', 'square'], ['2', 135, '#f2d16b', 'square'], ['3', 225, '#6bb3f2', 'square'], ['4', 315, '#c86bf2', 'square'],
-    ];
-    for (const [name, deg, color, shape] of marks) {
-      const p = compass(deg, MR); const c = toPx(p);
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
-      if (shape === 'circle') { ctx.beginPath(); ctx.arc(c.x, c.y, 11, 0, Math.PI * 2); ctx.stroke(); }
-      else ctx.strokeRect(c.x - 10, c.y - 10, 20, 20);
-      text(name, p, color, 12, 0);
-    }
+    window.EdenArena.drawFloor(ctx, toPx, CFG.R, SCALE);
 
     // 未来の欠片
     circle(CFG.FRAGMENT, CFG.FRAGMENT_R, 'rgba(255,255,220,0.35)', 'rgba(255,240,180,0.95)', 2);
@@ -486,6 +464,8 @@
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
     }
+
+    window.EdenArena.drawWaymarks(ctx, toPx);
 
     for (let i = 0; i < 8; i++) {
       const p = sim.pl[i];
