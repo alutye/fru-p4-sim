@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1218">
+<title>絶もうひとつの未来 P4「時間結晶」シミュレーター</title>
+<link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+<header>
+  <h1>絶もうひとつの未来 P4「時間結晶」シミュレーター</h1>
+  <p class="sub">ぬけまる式（赤ブリ東西待機・青は紫線基準・リターンY字）で、自分の担当だけを動かして練習できます。</p>
+  <nav class="nav">
+    <a href="index.html">光と闇の竜詩</a>
+    <a class="active" href="ct.html">時間結晶</a>
+  </nav>
+</header>
+
+<main>
+  <section class="arena-wrap">
+    <canvas id="arena" width="720" height="720"></canvas>
+    <div class="touch-bar">
+      <button id="sprintBtn" class="sprint">スプリント（押している間）</button>
+    </div>
+    <div class="controls-hint">PC: WASD / 矢印キー（Shift でスプリント）、またはクリック　|　Space: 一時停止<br>スマホ: フィールドをタップ／なぞって移動</div>
+  </section>
+
+  <aside class="panel">
+    <h2>設定</h2>
+    <div class="grid">
+      <label>操作ロール
+        <select id="role">
+          <option value="0">MT</option><option value="1">ST</option>
+          <option value="2">H1</option><option value="3">H2</option>
+          <option value="4">D1</option><option value="5">D2</option>
+          <option value="6">D3</option><option value="7">D4</option>
+        </select>
+      </label>
+      <label>紫線
+        <select id="purple">
+          <option value="random">ランダム</option>
+          <option value="NE">北東–南西</option>
+          <option value="NW">北西–南東</option>
+        </select>
+      </label>
+      <label>光の波1（東西）
+        <select id="tidal1">
+          <option value="random">ランダム</option>
+          <option value="E">東から</option>
+          <option value="W">西から</option>
+        </select>
+      </label>
+      <label>光の波2（南北）
+        <select id="tidal2">
+          <option value="random">ランダム</option>
+          <option value="N">北から</option>
+          <option value="S">南から</option>
+        </select>
+      </label>
+      <label>再生速度
+        <select id="speed">
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1.0x</option>
+        </select>
+      </label>
+      <label class="check"><input id="spectate" type="checkbox"> 観戦モード（全員 AI）</label>
+      <label class="check"><input id="hint" type="checkbox" checked> ヒント表示（担当位置・やること）</label>
+    </div>
+    <div class="buttons">
+      <button id="start" class="primary">開始</button>
+      <button id="pause">一時停止</button>
+      <button id="reset">リセット</button>
+    </div>
+
+    <h2>状況</h2>
+    <div id="status" class="status">
+      <div><span class="k">時間</span><span id="stTime">-</span></div>
+      <div><span class="k">フェーズ</span><span id="stPhase">-</span></div>
+      <div><span class="k">自分のデバフ</span><span id="stDebuff">-</span></div>
+      <div class="hint"><span class="k">やること</span><span id="stHint">「開始」を押してください</span></div>
+    </div>
+
+    <div id="result" class="result hidden"></div>
+
+    <h2>ログ</h2>
+    <ul id="log" class="log"></ul>
+  </aside>
+</main>
+
+<section class="doc">
+  <h2>ギミックの流れ（このシミュレーターでの再現）</h2>
+  <ol>
+    <li><b>詠唱完了（0s）</b>：全員にリターン。赤4人（聖竜の爪）＝ブリザガ2＋エアロガ2、青4人（聖竜の牙）＝エラプ・ウォタガ・ホーリー・ブリザガ各1。砂時計6個（黄＝南北が先、紫＝対角が最後）。北から竜頭が東西へ。</li>
+    <li><b>赤ブリザガ</b>：東西の外周で竜頭に当たって爪を解除。白円が落ちる。ドーナツ範囲に味方を巻き込まない。</li>
+    <li><b>赤エアロガ＋青3人</b>：紫線の南側で待機。黄砂時計のあとエアロガが青を北のエラプ側へ飛ばす。ウォタガは飛ばし前、ホーリーは飛ばし先で頭割り。</li>
+    <li><b>青エラプ</b>：紫線の北側で範囲を捨て、飛ばされてきた人とホーリー。</li>
+    <li><b>光の波</b>：東西→南北に1/4ずつ4回。青は白円を取る（ぬけまる：氷=B、聖=2、水=3、エラプ=D）。</li>
+    <li><b>リターン</b>：2つの波の始点に近い角にY字設置。テイカー散開のあと戻され、タンクがノックバックを先頭で受ける。</li>
+  </ol>
+  <h2>採用している処理法（ぬけまる式）</h2>
+  <ul>
+    <li>赤の東西分け優先度：西← H1 MT ST D1 D2 D3 D4 H2 →東</li>
+    <li>青は紫線基準。エラプ＝北側、他3人＝南側の赤エアロガと一緒</li>
+    <li>白円：ブリザガ=B、ホーリー=2、ウォタガ=3、エラプ=D</li>
+    <li>リターン：波が来た南北を「北」とし、角で MT が1発目側・ST が2発目側の前列</li>
+  </ul>
+  <p class="note">※ 範囲の大きさ・タイミングは推定値です。未来の欠片（北）に範囲を当てると失敗になります。</p>
+</section>
+
+<script src="ct_sim.js?v=5"></script>
+<script src="ct_app.js?v=5"></script>
+</body>
+</html>

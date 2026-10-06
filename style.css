@@ -20,6 +20,13 @@ body {
 header { padding: 16px 24px 4px; }
 header h1 { margin: 0; font-size: 20px; }
 header .sub { margin: 4px 0 0; color: var(--muted); }
+.nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.nav a {
+  color: var(--accent); text-decoration: none; font-size: 13px;
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; background: #171c26;
+}
+.nav a:hover { background: #232a3a; }
+.nav a.active { background: #2f55c9; color: #fff; border-color: #3b64e6; }
 
 main {
   display: flex;

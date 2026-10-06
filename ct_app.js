@@ -1,0 +1,376 @@
+/* 時間結晶 描画・操作 */
+(function () {
+  'use strict';
+  const { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, compass, dist } = window.CrystallizeSim;
+
+  const canvas = document.getElementById('arena');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 720;
+  const SCALE = SIZE / (2 * (CFG.R + 1.5));
+  const toPx = p => ({ x: SIZE / 2 + p.x * SCALE, y: SIZE / 2 + p.y * SCALE });
+  const fromPx = (px, py) => ({ x: (px - SIZE / 2) / SCALE, y: (py - SIZE / 2) / SCALE });
+
+  const $ = id => document.getElementById(id);
+  const ui = {
+    role: $('role'), purple: $('purple'), tidal1: $('tidal1'), tidal2: $('tidal2'), speed: $('speed'),
+    spectate: $('spectate'), hint: $('hint'), start: $('start'), pause: $('pause'), reset: $('reset'),
+    stTime: $('stTime'), stPhase: $('stPhase'), stDebuff: $('stDebuff'), stHint: $('stHint'),
+    result: $('result'), log: $('log'), sprintBtn: $('sprintBtn'),
+  };
+
+  function fitCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = Math.round(SIZE * dpr);
+    if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
+  }
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  const ROLE_COLOR = { tank: '#3b82f6', healer: '#22c55e', dps: '#ef4444' };
+  const PHASE_NAME = {
+    pre: '詠唱中', setup: '散開・竜頭待ち', yellow: '黄砂時計＋ウォタガ', kb: 'エアロガ吹き飛ばし',
+    heads: '赤エアロが竜頭', tidal: '光の波＋白円', return: 'リターン設置', taker: 'テイカー散開', kb2: 'ノックバック',
+  };
+  const SPELL_COLOR = { aeroR: '#86efac', iceR: '#7dd3fc', iceB: '#7dd3fc', waterB: '#60a5fa', unholyB: '#fde047', eruptB: '#c084fc' };
+
+  let sim = null, running = false, paused = false, timeScale = 1, last = performance.now(), loggedCount = 0;
+  const keys = new Set();
+  let touchSprint = false, pointerId = null;
+
+  function newSim() {
+    sim = new Sim({
+      purple: ui.purple.value, tidal1: ui.tidal1.value, tidal2: ui.tidal2.value,
+      userRole: parseInt(ui.role.value, 10), spectate: ui.spectate.checked,
+    });
+    running = false; paused = false; loggedCount = 0;
+    ui.log.innerHTML = '';
+    ui.result.classList.add('hidden');
+    ui.pause.textContent = '一時停止';
+    ui.start.textContent = '開始';
+  }
+
+  ui.start.addEventListener('click', () => {
+    if (sim.done) newSim();
+    running = true; paused = false;
+    ui.start.textContent = '実行中…';
+    ui.pause.textContent = '一時停止';
+    canvas.focus();
+  });
+  function togglePause() {
+    if (!running || sim.done) return;
+    paused = !paused;
+    ui.pause.textContent = paused ? '再開' : '一時停止';
+  }
+  ui.pause.addEventListener('click', togglePause);
+  ui.reset.addEventListener('click', newSim);
+  for (const el of [ui.role, ui.purple, ui.tidal1, ui.tidal2, ui.spectate]) {
+    el.addEventListener('change', () => { if (!running || sim.done) newSim(); });
+  }
+  ui.speed.addEventListener('change', () => { timeScale = parseFloat(ui.speed.value); });
+
+  canvas.tabIndex = 0;
+  const pointToField = ev => {
+    const r = canvas.getBoundingClientRect();
+    return fromPx((ev.clientX - r.left) * (SIZE / r.width), (ev.clientY - r.top) * (SIZE / r.height));
+  };
+  canvas.addEventListener('pointerdown', ev => {
+    if (!sim || sim.user < 0) return;
+    ev.preventDefault();
+    pointerId = ev.pointerId;
+    canvas.setPointerCapture(pointerId);
+    sim.moveTarget = pointToField(ev);
+    if (ev.pointerType === 'mouse') canvas.focus();
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (pointerId !== ev.pointerId || !sim || sim.user < 0) return;
+    ev.preventDefault();
+    sim.moveTarget = pointToField(ev);
+  });
+  const endPointer = ev => { if (pointerId === ev.pointerId) pointerId = null; };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('contextmenu', ev => ev.preventDefault());
+
+  ui.sprintBtn.addEventListener('pointerdown', ev => { ev.preventDefault(); touchSprint = true; ui.sprintBtn.classList.add('on'); });
+  const sprintOff = () => { touchSprint = false; ui.sprintBtn.classList.remove('on'); };
+  ui.sprintBtn.addEventListener('pointerup', sprintOff);
+  ui.sprintBtn.addEventListener('pointercancel', sprintOff);
+  ui.sprintBtn.addEventListener('pointerleave', sprintOff);
+
+  window.addEventListener('keydown', ev => {
+    const tag = (ev.target && ev.target.tagName) || '';
+    if (tag === 'SELECT' || tag === 'INPUT') return;
+    if (ev.code === 'Space') { ev.preventDefault(); togglePause(); return; }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight'].includes(ev.code)) {
+      ev.preventDefault(); keys.add(ev.code);
+    }
+  });
+  window.addEventListener('keyup', ev => keys.delete(ev.code));
+  window.addEventListener('blur', () => keys.clear());
+
+  function readInput() {
+    let dx = 0, dy = 0;
+    if (keys.has('KeyW') || keys.has('ArrowUp')) dy -= 1;
+    if (keys.has('KeyS') || keys.has('ArrowDown')) dy += 1;
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
+    if (keys.has('KeyD') || keys.has('ArrowRight')) dx += 1;
+    sim.input = { dx, dy, sprint: touchSprint || keys.has('ShiftLeft') || keys.has('ShiftRight') };
+  }
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (running && !paused && !sim.done) { readInput(); sim.update(dt * timeScale); }
+    draw();
+    updatePanel();
+    requestAnimationFrame(loop);
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  function updatePanel() {
+    const t = sim.t;
+    ui.stTime.textContent = (t < 0 ? `詠唱 ${(-t).toFixed(1)}s` : `${t.toFixed(1)}s`);
+    ui.stPhase.textContent = PHASE_NAME[sim.phaseKey(t)] + (sim.done ? '（終了）' : '');
+    if (sim.user >= 0) {
+      const p = sim.pl[sim.user];
+      const parts = [];
+      if (t >= 0) {
+        parts.push(p.red ? '聖竜の爪（赤）' : '聖竜の牙（青）');
+        parts.push(SPELL_NAME[p.spell]);
+        if (p.red && p.claw) parts.push(`爪 残${Math.max(0, sim.remain(sim.user, 'color')).toFixed(0)}s`);
+        if (p.blue && p.fang) parts.push(`牙 残${Math.max(0, sim.remain(sim.user, 'color')).toFixed(0)}s`);
+      }
+      ui.stDebuff.textContent = parts.length ? parts.join(' / ') : (t < 0 ? '（詠唱完了後に付与）' : 'なし');
+      ui.stHint.textContent = running ? sim.hintText(sim.user) : '「開始」を押してください';
+    } else {
+      ui.stDebuff.textContent = '観戦モード';
+      ui.stHint.textContent = running ? '全員 AI が処理します' : '「開始」を押してください';
+    }
+    while (loggedCount < sim.log.length) {
+      const l = sim.log[loggedCount++];
+      const li = document.createElement('li');
+      li.className = l.type;
+      li.innerHTML = `<span class="t">${l.t < 0 ? '-' : l.t.toFixed(1) + 's'}</span>${escapeHtml(l.text)}`;
+      ui.log.appendChild(li);
+      ui.log.scrollTop = ui.log.scrollHeight;
+    }
+    if (sim.done && ui.result.classList.contains('hidden')) {
+      const r = sim.result;
+      ui.result.classList.remove('hidden');
+      ui.result.classList.toggle('ok', r.success);
+      ui.result.classList.toggle('fail', !r.success);
+      let html = `<h3>${r.success ? 'クリア！ 全員ノーミス' : 'ミスあり'}</h3>`;
+      if (!r.success) {
+        html += '<ul>';
+        if (sim.user >= 0 && sim.fails[sim.user].length) html += `<li><b>自分（${ROLES[sim.user]}）:</b> ${sim.fails[sim.user].map(escapeHtml).join(' / ')}</li>`;
+        for (const fp of r.failedPlayers) if (fp.i !== sim.user) html += `<li>${ROLES[fp.i]}: ${fp.f.map(escapeHtml).join(' / ')}</li>`;
+        for (const rf of r.raidFails) html += `<li>${escapeHtml(rf)}</li>`;
+        html += '</ul>';
+      }
+      ui.result.innerHTML = html;
+      ui.start.textContent = 'もう一度';
+      running = false;
+    }
+  }
+
+  function circle(p, r, fill, stroke, lw) {
+    const c = toPx(p);
+    ctx.beginPath(); ctx.arc(c.x, c.y, r * SCALE, 0, Math.PI * 2);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1.5; ctx.stroke(); }
+  }
+  function text(str, p, color, size, dy) {
+    const c = toPx(p);
+    ctx.fillStyle = color; ctx.font = `${size || 12}px "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(str, c.x, c.y + (dy || 0));
+  }
+  function clipArena() {
+    const c = toPx({ x: 0, y: 0 });
+    ctx.beginPath(); ctx.arc(c.x, c.y, CFG.R * SCALE, 0, Math.PI * 2); ctx.clip();
+  }
+  function wrapText(str, maxW, font) {
+    ctx.font = font;
+    const lines = []; let cur = '';
+    for (const ch of String(str)) {
+      if (ch === '\n') { lines.push(cur); cur = ''; continue; }
+      if (ctx.measureText(cur + ch).width > maxW && cur) { lines.push(cur); cur = ch; } else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function drawBand(d, lo, hi, fill) {
+    ctx.save(); clipArena();
+    const a = toPx({ x: d.x * lo, y: d.y * lo });
+    const b = toPx({ x: d.x * hi, y: d.y * hi });
+    const px = { x: -d.y, y: d.x };
+    const w = CFG.R * 3 * SCALE;
+    ctx.beginPath();
+    ctx.moveTo(a.x + px.x * w, a.y + px.y * w);
+    ctx.lineTo(a.x - px.x * w, a.y - px.y * w);
+    ctx.lineTo(b.x - px.x * w, b.y - px.y * w);
+    ctx.lineTo(b.x + px.x * w, b.y + px.y * w);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    const t = sim.t, T = CFG.T;
+    const dpr = canvas.width / SIZE;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    const showHint = ui.hint.checked && sim.user >= 0;
+
+    circle({ x: 0, y: 0 }, CFG.R, '#1b2233', '#3a4660', 3);
+    ctx.save(); clipArena();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+    for (let k = -20; k <= 20; k += 5) {
+      const a = toPx({ x: k, y: -CFG.R }), b = toPx({ x: k, y: CFG.R });
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      const c = toPx({ x: -CFG.R, y: k }), d = toPx({ x: CFG.R, y: k });
+      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+    }
+    ctx.restore();
+
+    const MR = 16;
+    const marks = [
+      ['A', 0, '#f26b6b', 'circle'], ['B', 90, '#f2d16b', 'circle'], ['C', 180, '#6bb3f2', 'circle'], ['D', 270, '#c86bf2', 'circle'],
+      ['1', 45, '#f26b6b', 'square'], ['2', 135, '#f2d16b', 'square'], ['3', 225, '#6bb3f2', 'square'], ['4', 315, '#c86bf2', 'square'],
+    ];
+    for (const [name, deg, color, shape] of marks) {
+      const p = compass(deg, MR); const c = toPx(p);
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      if (shape === 'circle') { ctx.beginPath(); ctx.arc(c.x, c.y, 11, 0, Math.PI * 2); ctx.stroke(); }
+      else ctx.strokeRect(c.x - 10, c.y - 10, 20, 20);
+      text(name, p, color, 12, 0);
+    }
+
+    // 未来の欠片
+    circle(CFG.FRAGMENT, CFG.FRAGMENT_R, 'rgba(255,255,220,0.35)', 'rgba(255,240,180,0.95)', 2);
+    text('欠片', CFG.FRAGMENT, '#fff6c8', 11, -CFG.FRAGMENT_R * SCALE - 10);
+
+    // 砂時計
+    if (t >= T.DEBUFF) {
+      for (const h of sim.hourglass) {
+        if (h.exploded) continue;
+        const col = h.kind === 'yellow' ? 'rgba(255,220,80,0.85)' : h.kind === 'purple' ? 'rgba(180,120,255,0.85)' : 'rgba(180,200,220,0.7)';
+        const fill = t >= h.at - 3.5 ? (h.kind === 'yellow' ? 'rgba(255,220,80,0.18)' : h.kind === 'purple' ? 'rgba(180,120,255,0.16)' : 'rgba(180,200,220,0.12)') : 'rgba(255,255,255,0.04)';
+        circle(h.pos, CFG.HG_R, fill, col, 2);
+        circle(h.pos, 0.7, col);
+      }
+    }
+
+    // 光の波予兆
+    for (const j of [1, 2]) {
+      const ann = j === 1 ? T.TIDAL1_ANN : T.TIDAL2_ANN;
+      if (t < ann) continue;
+      for (let k = 0; k < 4; k++) {
+        const b = sim.tidalBand(j, k);
+        if (t >= b.at - CFG.TIDAL_TELE && t < b.at) drawBand(b.d, b.lo, b.hi, 'rgba(255,230,140,0.16)');
+      }
+    }
+
+    for (const ef of sim.effects) {
+      if (ef.type === 'circle') circle(ef.pos, ef.r, ef.color);
+      else if (ef.type === 'donut') {
+        ctx.save(); clipArena();
+        const c = toPx(ef.pos);
+        ctx.beginPath(); ctx.arc(c.x, c.y, ef.r2 * SCALE, 0, Math.PI * 2);
+        ctx.arc(c.x, c.y, ef.r1 * SCALE, 0, Math.PI * 2, true);
+        ctx.fillStyle = ef.color; ctx.fill();
+        ctx.restore();
+      } else if (ef.type === 'band') drawBand(ef.d, ef.lo, ef.hi, ef.color);
+      else if (ef.type === 'line') {
+        const a = toPx(ef.a), b = toPx(ef.b);
+        ctx.strokeStyle = ef.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+
+    // 白円
+    for (const pd of sim.puddles) {
+      circle(pd, CFG.PUDDLE_R, 'rgba(255,255,255,0.55)', '#ffffff', 2);
+    }
+
+    // 竜頭
+    for (const h of sim.heads) {
+      if (!h.alive) continue;
+      circle(h, 1.4, '#f8fafc', '#fde68a', 2);
+      text('竜', h, '#1e293b', 11, 0);
+    }
+
+    // リーン（光の波の始点）
+    if (t >= T.TIDAL1_ANN && t < T.TIDAL2[3] + 1) {
+      const j = t >= T.TIDAL2_ANN ? 2 : 1;
+      const d = sim.tidalDir(j);
+      const pos = { x: d.x * 21, y: d.y * 21 };
+      circle(pos, 1.3, '#9fd3ff', '#e8f6ff', 2);
+      text('リーン', pos, '#dff1ff', 11, 16);
+    }
+
+    if (showHint && running && !sim.done) {
+      const target = sim.assignedPos(sim.user, t);
+      if (target) {
+        ctx.setLineDash([5, 4]);
+        circle(target, 1.3, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.85)', 2);
+        ctx.setLineDash([]);
+        const a = toPx(sim.pl[sim.user]), b = toPx(target);
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+
+    for (let i = 0; i < 8; i++) {
+      const p = sim.pl[i];
+      const isUser = i === sim.user;
+      circle(p, 0.95, null, p.red ? 'rgba(248,113,113,0.95)' : 'rgba(96,165,250,0.95)', 2.5);
+      circle(p, 0.7, ROLE_COLOR[ROLE_TYPE[i]], isUser ? '#ffffff' : 'rgba(0,0,0,0.6)', isUser ? 3 : 1.5);
+      text(ROLES[i], p, '#ffffff', 10, 0);
+      if (t >= 0) {
+        const c = toPx(p);
+        ctx.fillStyle = SPELL_COLOR[p.spell];
+        ctx.beginPath(); ctx.arc(c.x, c.y - 0.7 * SCALE - 12, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(SPELL_SHORT[p.spell], c.x, c.y - 0.7 * SCALE - 12);
+      }
+      if (isUser) text('YOU', p, '#ffffff', 10, 0.7 * SCALE + 9);
+      if (sim.fails[i].length) {
+        const c = toPx(p);
+        ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(c.x - 9, c.y - 9); ctx.lineTo(c.x + 9, c.y + 9); ctx.moveTo(c.x + 9, c.y - 9); ctx.lineTo(c.x - 9, c.y + 9); ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '14px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(t < 0 ? `詠唱中 ${(-t).toFixed(1)}s` : `T+${t.toFixed(1)}s`, 12, 10);
+    ctx.fillText(PHASE_NAME[sim.phaseKey(t)], 12, 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('北↑ / 東→', SIZE - 12, 10);
+
+    if (ui.hint.checked && running && !sim.done && sim.user >= 0) {
+      const lines = wrapText(sim.hintText(sim.user), SIZE - 32, '15px "Segoe UI", sans-serif').slice(0, 3);
+      const lh = 20, h = lines.length * lh + 12, y0 = SIZE - h - 8;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(8, y0, SIZE - 16, h);
+      ctx.fillStyle = '#ffe08a'; ctx.font = '15px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      lines.forEach((ln, k) => ctx.fillText(ln, 16, y0 + 6 + k * lh));
+    }
+
+    if (!running && !sim.done) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, SIZE / 2 - 24, SIZE, 48);
+      ctx.fillStyle = '#fff'; ctx.font = '18px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('「開始」を押すと詠唱が始まります', SIZE / 2, SIZE / 2);
+    } else if (paused) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, SIZE / 2 - 24, SIZE, 48);
+      ctx.fillStyle = '#fff'; ctx.font = '18px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('一時停止中（Space で再開）', SIZE / 2, SIZE / 2);
+    }
+  }
+
+  window.CrystallizeApp = { get sim() { return sim; } };
+  newSim();
+  requestAnimationFrame(loop);
+})();
