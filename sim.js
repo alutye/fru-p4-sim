@@ -67,7 +67,8 @@
   }
 
   function genScenario(opts, rand) {
-    const th = pick2([0, 1, 2, 3], rand).sort(byWest);
+    // 鎖はタンク1人＋ヒーラー1人、DPS2人
+    const th = [Math.floor(rand() * 2), 2 + Math.floor(rand() * 2)].sort(byWest);
     const dps = pick2([4, 5, 6, 7], rand).sort(byWest);
     const NW = th[0], NE = th[1], SW = dps[0], SE = dps[1];
     const shapes = ['ribbon', 'square', 'hourglass'];
