@@ -453,9 +453,11 @@
       }
     }
 
-    // 白円
+    // 白円（赤が当たった地点。B/2/3/D は担当マーカー）
+    const MARK_COL = { B: '#ca8a04', D: '#7e22ce', '2': '#ca8a04', '3': '#2563eb' };
     for (const pd of sim.puddles) {
-      circle(pd, CFG.PUDDLE_R, 'rgba(255,255,255,0.55)', '#ffffff', 2);
+      circle(pd, CFG.PUDDLE_R, 'rgba(255,255,255,0.7)', '#ffffff', 2.5);
+      if (pd.mark) text(pd.mark, pd, MARK_COL[pd.mark] || '#1e293b', 16, 0);
     }
 
     // 竜頭（ロックオン＋進行方向）

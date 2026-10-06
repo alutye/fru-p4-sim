@@ -50,7 +50,8 @@
   const SPELL_SHORT = { aeroR: '風', iceR: '氷', iceB: '氷', waterB: '水', unholyB: '聖', eruptB: '爆' };
   // ぬけまる／野良：青が attack me → 1=B, 2=2, 3=3, 4=D
   const ATTACK_MARK = { iceB: 1, unholyB: 2, waterB: 3, eruptB: 4 };
-  const PUDDLE_MARK = { iceB: 'B（東）', unholyB: '2（南東）', waterB: '3（南西）', eruptB: 'D（西）' };
+  const BLUE_PUDDLE_MARK = { iceB: 'B', unholyB: '2', waterB: '3', eruptB: 'D' };
+  const PUDDLE_MARK = { iceB: 'B（東・赤氷）', unholyB: '2（南東・赤風）', waterB: '3（南西・赤風）', eruptB: 'D（西・赤氷）' };
 
   function compass(deg, r) { const a = deg * D2R; return { x: r * Math.sin(a), y: -r * Math.cos(a) }; }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -65,7 +66,13 @@
 
   const START_POS = [0, 1, 2, 3, 4, 5, 6, 7].map(k => compass(22.5 + 45 * k, 3));
   const NORTH_SAFE = { x: 0, y: -13 };
-  const PUDDLE_NOMINAL = { iceB: { x: 17, y: 0 }, eruptB: { x: -17, y: 0 }, unholyB: compass(135, 17), waterB: compass(225, 17) };
+  const PUDDLE_NOMINAL = {
+    iceB: { x: CFG.HEAD_R, y: 0 },
+    eruptB: { x: -CFG.HEAD_R, y: 0 },
+    unholyB: compass(135, CFG.HEAD_R),
+    waterB: compass(225, CFG.HEAD_R),
+  };
+  const MARK_POS = { B: PUDDLE_NOMINAL.iceB, D: PUDDLE_NOMINAL.eruptB, '2': PUDDLE_NOMINAL.unholyB, '3': PUDDLE_NOMINAL.waterB };
 
   function genScenario(opts, rand) {
     const spells = shuffle(['aeroR', 'aeroR', 'iceR', 'iceR', 'iceB', 'waterB', 'unholyB', 'eruptB'], rand);
@@ -140,7 +147,7 @@
       this.pl = ROLES.map((_, i) => {
         const sp = this.sc.spells[i];
         const red = sp.endsWith('R');
-        return { x: START_POS[i].x, y: START_POS[i].y, spell: sp, red, blue: !red, claw: red, fang: !red, popped: false, cleansed: false, immune: -1, claimed: null };
+        return { x: START_POS[i].x, y: START_POS[i].y, spell: sp, red, blue: !red, claw: red, fang: !red, popped: false, cleansed: false, immune: -1 };
       });
       this.user = this.opts.spectate ? -1 : this.opts.userRole;
       this.heads = [{ dir: 1, alive: true, pops: 0, x: 0, y: -CFG.HEAD_R }, { dir: -1, alive: true, pops: 0, x: 0, y: -CFG.HEAD_R }];
@@ -239,15 +246,20 @@
       return best || clampArena(tgt, CFG.R - 0.7);
     }
 
-    puddleTarget(i) {
+    puddleMarkOfRed(i) {
       const p = this.pl[i];
-      const nominal = PUDDLE_NOMINAL[p.spell];
-      if (p.claimed && this.puddles.includes(p.claimed)) return p.claimed;
-      const free = this.puddles.filter(pd => !this.pl.some((q, j) => j !== i && q.claimed === pd));
-      if (!free.length) return nominal;
-      free.sort((a, b) => dist(a, nominal) - dist(b, nominal));
-      p.claimed = free[0];
-      return free[0];
+      if (p.spell === 'iceR') return this.as.iceSide[i] > 0 ? 'B' : 'D';
+      if (p.spell === 'aeroR') return this.as.aeroSide[i] > 0 ? '2' : '3';
+      return null;
+    }
+    puddleTarget(i) {
+      const mark = BLUE_PUDDLE_MARK[this.pl[i].spell];
+      const pd = this.puddles.find(x => x.mark === mark);
+      if (pd) return { x: pd.x, y: pd.y };
+      const wait = MARK_POS[mark];
+      const r = Math.hypot(wait.x, wait.y) || 1;
+      const hold = 8;
+      return { x: wait.x / r * hold, y: wait.y / r * hold };
     }
 
     desired(i, t) {
@@ -281,14 +293,15 @@
       }
       if (p.spell === 'aeroR') {
         const side = as.aeroSide[i];
-        const wallOut = compass(side < 0 ? 225 : 135, 18.8);
-        const wallIn = compass(side < 0 ? 225 : 135, CFG.HEAD_R);
+        const markAng = side < 0 ? 225 : 135;
+        const wallOut = compass(markAng, 18.8);
+        const wait = compass(markAng, CFG.HEAD_R);
         if (t < T.YELLOW + 0.2) return wallOut;
         if (t < T.MOST + 0.3) return side === as.ps ? as.A : wallOut;
         if (!p.popped && t < T.CLAW_AERO) {
-          if (t < T.UNTETH + 0.2) return wallOut;
-          for (const h of this.heads) if (h.alive && dist(p, h) < 5) return { x: h.x, y: h.y };
-          return wallIn;
+          const head = this.heads.find(h => h.alive && Math.sign(h.dir || 1) === Math.sign(side));
+          if (head && dist(wait, head) <= CFG.HEAD_TOUCH + 1) return { x: head.x, y: head.y };
+          return wait;
         }
         return late;
       }
@@ -355,14 +368,14 @@
       if (p.spell === 'eruptB') {
         if (t < T.MOST) return `青・${sp}（攻撃${ATTACK_MARK.eruptB}） → 紫線の北側（${this.sideName(as.pn)}）の外周、円の外で待機（${this.remain(i, 'spell').toFixed(0)}s）`;
         if (t < T.UNTETH) return `エラプ着弾後、少し内側へ → 飛んでくる青3人＋赤氷とダークホーリー頭割り（5人）`;
-        if (!p.cleansed) return `白円を取りに行く → 攻撃${ATTACK_MARK[p.spell]}＝${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
+        if (!p.cleansed) return `攻撃${ATTACK_MARK[p.spell]}の白円（${BLUE_PUDDLE_MARK[p.spell]}＝赤が残した場所）を踏みに行く。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
         return `解除完了 → 光の波を避けて ${this.cornerName()} 側へ`;
       }
       // 青（氷・水・聖）
       if (t < T.YELLOW) return `青・${sp}（攻撃${ATTACK_MARK[p.spell]}） → 紫線の南側（${this.sideName(as.ps)}）の外周で赤エアロガと一緒に待機（ウォタガ頭割り）`;
       if (t < T.MOST) return `黄砂時計の爆発後、エアロガ担当の前（北の反対側に向かって一直線）に立つ → 吹き飛ばされる`;
       if (t < T.UNTETH) return `飛んだ先でエラプ＋赤氷と頭割り（ダークホーリー）`;
-      if (!p.cleansed) return `白円を取りに行く → 攻撃${ATTACK_MARK[p.spell]}＝${PUDDLE_MARK[p.spell]}。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
+      if (!p.cleansed) return `攻撃${ATTACK_MARK[p.spell]}の白円（${BLUE_PUDDLE_MARK[p.spell]}＝赤が残した場所）を踏みに行く。光の波と紫砂時計に注意（${this.remain(i, 'color').toFixed(0)}s）`;
       return `解除完了 → 光の波を避けて ${this.cornerName()} 側へ`;
     }
 
@@ -474,9 +487,10 @@
     popHead(h, i) {
       const p = this.pl[i];
       p.claw = false; p.popped = true; h.pops++;
-      const pos = { x: h.x * 0.86, y: h.y * 0.86 };
-      this.puddles.push({ x: pos.x, y: pos.y });
-      this.ok(`${ROLES[i]} が竜頭に接触（聖竜の爪 解除）→ 白円を設置`);
+      const pos = { x: p.x, y: p.y };
+      const mark = this.puddleMarkOfRed(i);
+      this.puddles.push({ x: pos.x, y: pos.y, mark, from: i });
+      this.ok(`${ROLES[i]} が竜頭に接触（聖竜の爪 解除）→ 白円を${mark}に設置`);
       for (let j = 0; j < 8; j++) {
         if (j === i) continue;
         if (dist(this.pl[j], pos) <= CFG.LONGING_R) this.fail(j, `竜頭の爆発（${ROLES[i]} の接触）に巻き込まれた`);
@@ -587,7 +601,7 @@
     }
   }
 
-  const api = { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, ATTACK_MARK, PUDDLE_MARK, PUDDLE_NOMINAL, START_POS, NORTH_SAFE, compass, dist, genScenario, computeAssignments };
+  const api = { Sim, CFG, ROLES, ROLE_TYPE, SPELL_NAME, SPELL_SHORT, ATTACK_MARK, BLUE_PUDDLE_MARK, PUDDLE_MARK, PUDDLE_NOMINAL, MARK_POS, START_POS, NORTH_SAFE, compass, dist, genScenario, computeAssignments };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.CrystallizeSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
