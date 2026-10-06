@@ -19,7 +19,7 @@
     HG_DIST: 10,          // 砂時計の中心距離
     HG_R: 8.5,            // 砂時計の爆発半径
     HG_ANGLES: [0, 60, 120, 180, 240, 300],
-    HEAD_R: 16.5,          // 竜頭の移動半径
+    HEAD_R: 18,            // 竜頭の移動半径（外周。壁から2y）
     HEAD_SPEED: 6.2,      // 竜頭の角速度 (deg/s)。90°到達≒14.5s（ブリザガと同時）
     HEAD_TOUCH: 2.2,
     LONGING_R: 5.5,       // 竜頭接触時の爆発
@@ -33,7 +33,7 @@
     TAKER_R: 5,
     TIDAL_W: 10,
     TIDAL_TELE: 1.6,
-    FRAGMENT: { x: 0, y: -16.5 }, FRAGMENT_R: 1.5,
+    FRAGMENT: { x: 0, y: -18 }, FRAGMENT_R: 1.5,
     T: {
       START: -5, DEBUFF: 0,
       YELLOW: 12, MOST: 14, UNTETH: 17,
