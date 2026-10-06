@@ -15,8 +15,17 @@
     role: $('role'), shape: $('shape'), wing: $('wing'), speed: $('speed'), tether: $('tether'), tetherVal: $('tetherVal'),
     spectate: $('spectate'), hint: $('hint'), start: $('start'), pause: $('pause'), reset: $('reset'),
     stTime: $('stTime'), stPhase: $('stPhase'), stDebuff: $('stDebuff'), stHint: $('stHint'),
-    result: $('result'), log: $('log'),
+    result: $('result'), log: $('log'), sprintBtn: $('sprintBtn'),
   };
+
+  // 高解像度ディスプレイ対応（論理サイズは SIZE のまま）
+  function fitCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const w = Math.round(SIZE * dpr);
+    if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
+  }
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
 
   const ROLE_COLOR = { tank: '#3b82f6', healer: '#22c55e', dps: '#ef4444' };
   const PHASE_NAME = { pre: '詠唱中（整列）', A: '塔・扇誘導', B: 'テイカー散開', C: 'ホーリーウィング＋ウォタガ', D: '宵闇の舞踏技' };
@@ -66,14 +75,37 @@
   }
 
   canvas.tabIndex = 0;
-  canvas.addEventListener('click', ev => {
-    if (!sim || sim.user < 0) return;
+  // タップ / クリックで移動先指定、押したまま動かすと指に追従
+  let pointerId = null;
+  const pointToField = ev => {
     const r = canvas.getBoundingClientRect();
-    const px = (ev.clientX - r.left) * (SIZE / r.width);
-    const py = (ev.clientY - r.top) * (SIZE / r.height);
-    sim.moveTarget = fromPx(px, py);
-    canvas.focus();
+    return fromPx((ev.clientX - r.left) * (SIZE / r.width), (ev.clientY - r.top) * (SIZE / r.height));
+  };
+  canvas.addEventListener('pointerdown', ev => {
+    if (!sim || sim.user < 0) return;
+    ev.preventDefault();
+    pointerId = ev.pointerId;
+    canvas.setPointerCapture(pointerId);
+    sim.moveTarget = pointToField(ev);
+    if (ev.pointerType === 'mouse') canvas.focus();
   });
+  canvas.addEventListener('pointermove', ev => {
+    if (pointerId !== ev.pointerId || !sim || sim.user < 0) return;
+    ev.preventDefault();
+    sim.moveTarget = pointToField(ev);
+  });
+  const endPointer = ev => { if (pointerId === ev.pointerId) pointerId = null; };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('contextmenu', ev => ev.preventDefault());
+
+  // スプリントボタン（タッチ用）
+  let touchSprint = false;
+  ui.sprintBtn.addEventListener('pointerdown', ev => { ev.preventDefault(); touchSprint = true; ui.sprintBtn.classList.add('on'); });
+  const sprintOff = () => { touchSprint = false; ui.sprintBtn.classList.remove('on'); };
+  ui.sprintBtn.addEventListener('pointerup', sprintOff);
+  ui.sprintBtn.addEventListener('pointercancel', sprintOff);
+  ui.sprintBtn.addEventListener('pointerleave', sprintOff);
   window.addEventListener('keydown', ev => {
     const tag = (ev.target && ev.target.tagName) || '';
     if (tag === 'SELECT' || tag === 'INPUT') return;
@@ -92,7 +124,7 @@
     if (keys.has('KeyS') || keys.has('ArrowDown')) dy += 1;
     if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
     if (keys.has('KeyD') || keys.has('ArrowRight')) dx += 1;
-    sim.input = { dx, dy, sprint: keys.has('ShiftLeft') || keys.has('ShiftRight') };
+    sim.input = { dx, dy, sprint: touchSprint || keys.has('ShiftLeft') || keys.has('ShiftRight') };
   }
 
   // ---- main loop ----
@@ -191,6 +223,8 @@
 
   function draw() {
     const t = sim.t, T = CFG.T;
+    const dpr = canvas.width / SIZE;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, SIZE, SIZE);
     const showHint = ui.hint.checked && sim.user >= 0;
 
@@ -352,6 +386,17 @@
     wing(-1, cleave === 'W');
   }
 
+  function wrapText(str, maxW, font) {
+    ctx.font = font;
+    const lines = []; let cur = '';
+    for (const ch of String(str)) {
+      if (ch === '\n') { lines.push(cur); cur = ''; continue; }
+      if (ctx.measureText(cur + ch).width > maxW && cur) { lines.push(cur); cur = ch; } else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
   function drawHud() {
     const t = sim.t, T = CFG.T;
     // time
@@ -375,6 +420,15 @@
     // compass
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText('北↑ / 東→', SIZE - 12, 10);
+    // やること（フィールド下部）
+    if (ui.hint.checked && running && !sim.done && sim.user >= 0) {
+      const lines = wrapText(sim.hintText(sim.user), SIZE - 32, '15px "Segoe UI", sans-serif').slice(0, 3);
+      const lh = 20, h = lines.length * lh + 12, y0 = SIZE - h - 8;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(8, y0, SIZE - 16, h);
+      ctx.fillStyle = '#ffe08a'; ctx.font = '15px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      lines.forEach((ln, k) => ctx.fillText(ln, 16, y0 + 6 + k * lh));
+    }
     if (!running && !sim.done) {
       ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, SIZE / 2 - 24, SIZE, 48);
       ctx.fillStyle = '#fff'; ctx.font = '18px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

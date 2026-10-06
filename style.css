@@ -34,12 +34,26 @@ canvas#arena {
   width: 720px;
   height: 720px;
   max-width: 100%;
+  aspect-ratio: 1 / 1;
   background: #0a0d13;
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: crosshair;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .controls-hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.touch-bar { display: none; margin-top: 8px; }
+.touch-bar .sprint {
+  width: 100%; padding: 14px; font-size: 16px; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.touch-bar .sprint.on { background: #2f55c9; border-color: #3b64e6; }
+@media (hover: none) and (pointer: coarse) {
+  .touch-bar { display: block; }
+}
 
 .panel {
   flex: 1 1 340px;
@@ -96,6 +110,29 @@ button.primary:hover { background: #3a63dd; }
 .doc ol, .doc ul { margin: 0; padding-left: 22px; }
 .doc li { margin: 3px 0; }
 .doc .note { color: var(--muted); font-size: 12.5px; }
+/* スマホ・タブレット */
+@media (max-width: 900px) {
+  header { padding: 12px 12px 2px; }
+  header h1 { font-size: 16px; }
+  header .sub { font-size: 12px; }
+  main { flex-direction: column; padding: 8px 12px; gap: 12px; }
+  .arena-wrap { width: 100%; }
+  canvas#arena { width: 100%; height: auto; }
+  .panel { max-width: none; min-width: 0; width: 100%; padding: 12px; }
+  .grid { grid-template-columns: 1fr 1fr; }
+  select { font-size: 16px; padding: 8px 6px; } /* iOS の自動ズーム防止 */
+  button { padding: 12px 14px; font-size: 15px; }
+  .buttons { flex-wrap: wrap; }
+  .buttons button { flex: 1 1 30%; }
+  .status .k { flex-basis: 84px; }
+  .log { max-height: 180px; }
+  .doc { padding: 8px 12px 28px; }
+  .doc .macro { font-size: 11.5px; }
+}
+@media (max-width: 420px) {
+  .grid { grid-template-columns: 1fr; }
+  .grid label.check { grid-column: span 1; }
+}
 .doc .macro {
   background: #0f1218; border: 1px solid var(--border); border-radius: 6px;
   padding: 10px 14px; margin: 6px 0 10px; font-size: 13px; line-height: 1.45;
