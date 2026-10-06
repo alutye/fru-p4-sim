@@ -20,7 +20,7 @@
     HG_R: 8.5,            // 砂時計の爆発半径
     HG_ANGLES: [0, 60, 120, 180, 240, 300],
     HEAD_R: 16.5,          // 竜頭の移動半径
-    HEAD_SPEED: 7.2,      // 竜頭の角速度 (deg/s)
+    HEAD_SPEED: 6.2,      // 竜頭の角速度 (deg/s)。90°到達≒14.5s（ブリザガと同時）
     HEAD_TOUCH: 2.2,
     LONGING_R: 5.5,       // 竜頭接触時の爆発
     PUDDLE_R: 2.0,
@@ -259,10 +259,19 @@
         : (t >= T.TIDAL1[3] - 0.2 ? { x: as.cx * 13, y: as.cy * 8 } : (t >= T.TIDAL1_ANN ? { x: as.cx * 3, y: as.cy * 3 } : NORTH_SAFE));
       if (p.spell === 'iceR') {
         const side = as.iceSide[i];
+        const dash = side !== as.pn; // エラプがいない側 → 爆走
         const wall = { x: side * 19, y: 0 };
+        const head = this.heads.find(h => h.alive && Math.sign(h.dir || 1) === Math.sign(side));
         if (!p.popped && t < T.CLAW_ICE) {
-          for (const h of this.heads) if (h.alive && dist(p, h) < 5) return { x: h.x, y: h.y };
+          if (dash && t >= T.MOST - 2) {
+            if (head) return { x: head.x, y: head.y };
+            return compass(side > 0 ? 55 : 305, CFG.HEAD_R);
+          }
           return { x: side * CFG.HEAD_R, y: 0 };
+        }
+        if (dash) {
+          if (t < T.TIDAL1_ANN) return NORTH_SAFE;
+          return late;
         }
         if (t < T.MOST + 0.2) return wall;
         if (side === as.pn) return t < T.UNTETH + 0.4 ? add(as.L, as.u, 0.8) : late;
@@ -296,7 +305,7 @@
     }
     aiSprint(i, t) {
       const T = CFG.T, p = this.pl[i];
-      if (p.spell === 'iceR' && this.as.iceSide[i] !== this.as.pn && t >= T.MOST && t < T.TIDAL1_ANN) return true;
+      if (p.spell === 'iceR' && this.as.iceSide[i] !== this.as.pn && t >= CFG.T.MOST - 2 && t < CFG.T.TIDAL1_ANN) return true;
       if (p.blue && t >= T.UNTETH && !p.cleansed) return true;
       if (t >= T.TIDAL1_ANN) return true;
       return false;
@@ -319,10 +328,19 @@
       }
       if (p.spell === 'iceR') {
         const side = as.iceSide[i];
-        if (!p.popped) return `赤・${sp} → ${this.sideName(side)}（${side > 0 ? 'B' : 'D'}）の外周真横で待機。竜頭が来たら当たる（${this.remain(i, 'color').toFixed(0)}s）`;
+        const dash = side !== as.pn;
+        const mark = side > 0 ? 'B' : 'D';
+        if (!p.popped) {
+          if (dash) {
+            if (t < T.MOST - 2) return `赤・${sp} → 爆走確定（エラプは${this.sideName(as.pn)}側）。${this.sideName(side)}（${mark}）真横で待機。ブリザガ2秒前にスプリント`;
+            return `爆走！北へ走って竜頭に当たり、未来の欠片へ（ブリザガ残${Math.max(0, this.remain(i, 'spell')).toFixed(0)}s）`;
+          }
+          return `赤・${sp} → 爆走しない（エラプが前にいる）。${this.sideName(side)}（${mark}）真横で待機。竜頭が当たりに来る`;
+        }
+        if (dash) return t < T.TIDAL1_ANN ? `竜頭に当たった → 未来の欠片／北安置へ（ブリザガで味方を巻き込まない）` : `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西'}）を避ける`;
         if (t < T.MOST) return `ブリザガ着弾まで動かない（ドーナツ範囲に味方を巻き込まない）`;
         if (side === as.pn) return t < T.UNTETH ? `エラプ側 → ${this.sideName(as.pn)}北の頭割り（ダークホーリー）へ合流` : `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西どちらか'}）を避けつつ北/中央へ`;
-        return t < T.TIDAL1_ANN ? `エラプがいない側 → スプリントで北の安地へ（砂時計を避ける）` : `光の波（${this.tidalName(1)}から）を避ける`;
+        return t < T.TIDAL1_ANN ? `北安置へ` : `光の波（${this.tidalName(1)}から）を避ける`;
       }
       if (p.spell === 'aeroR') {
         const side = as.aeroSide[i];
