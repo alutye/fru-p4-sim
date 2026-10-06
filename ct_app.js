@@ -248,8 +248,8 @@
 
   function drawDragonHead(h) {
     const c = toPx(h);
-    const r = 1.4 * SCALE;
-    circle(h, 1.4, '#f8fafc', '#fde68a', 2.5);
+    const r = 2.0 * SCALE;
+    circle(h, 2.0, '#f8fafc', '#fde68a', 2.5);
     drawLockOn(c.x, c.y, r + 7, '#facc15');
     ctx.fillStyle = '#1e293b';
     ctx.font = 'bold 11px "Segoe UI", sans-serif';
