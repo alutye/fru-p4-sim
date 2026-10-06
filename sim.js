@@ -78,11 +78,13 @@
     else if (shape === 'square') cycle = [NW, NE, SE, SW];
     else cycle = [NW, NE, SW, SE];
     const pairs = [[cycle[0], cycle[2]], [cycle[1], cycle[3]]]; // 鎖で繋がっていない組 = 同じ塔に入れる組
-    let water = [0, 1];
+    // ウォタガ: 2人。タンク+タンク / ヒラ+ヒラ の組み合わせは出ない。同じ塔に入る2人にも同時には付かない
+    let water = [0, 4];
     for (let k = 0; k < 200; k++) {
       water = pick2([0, 1, 2, 3, 4, 5, 6, 7], rand);
-      const same = pairs.some(p => p.includes(water[0]) && p.includes(water[1]));
-      if (!same) break;
+      const samePair = pairs.some(p => p.includes(water[0]) && p.includes(water[1]));
+      const sameTH = water[0] < 4 && ROLE_TYPE[water[0]] === ROLE_TYPE[water[1]];
+      if (!samePair && !sameTH) break;
     }
     const wingCleave = (opts.wing === 'E' || opts.wing === 'W') ? opts.wing : (rand() < 0.5 ? 'E' : 'W');
     const taker = Math.floor(rand() * 8);
