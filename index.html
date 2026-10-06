@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>絶もうひとつの未来 P4「光と闇の竜詩」シミュレーター</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>絶もうひとつの未来 P4「光と闇の竜詩」シミュレーター</h1>
+  <p class="sub">ぬけまる式（南北整列・扇前調整）の処理法で動く AI 7人と一緒に、自分の担当だけを動かして練習できます。</p>
+</header>
+
+<main>
+  <section class="arena-wrap">
+    <canvas id="arena" width="720" height="720"></canvas>
+    <div class="controls-hint">移動: WASD / 矢印キー（Shift でスプリント）、またはフィールドをクリック　|　Space: 一時停止</div>
+  </section>
+
+  <aside class="panel">
+    <h2>設定</h2>
+    <div class="grid">
+      <label>操作ロール
+        <select id="role">
+          <option value="0">MT</option><option value="1">ST</option>
+          <option value="2">H1</option><option value="3">H2</option>
+          <option value="4">D1</option><option value="5">D2</option>
+          <option value="6">D3</option><option value="7">D4</option>
+        </select>
+      </label>
+      <label>鎖の形
+        <select id="shape">
+          <option value="random">ランダム</option>
+          <option value="ribbon">リボン（∞）調整なし</option>
+          <option value="square">四角形（□）右上↔右下</option>
+          <option value="hourglass">砂時計（8）右上↔左下</option>
+        </select>
+      </label>
+      <label>光る羽（焼かれる側）
+        <select id="wing">
+          <option value="random">ランダム</option>
+          <option value="E">東</option>
+          <option value="W">西</option>
+        </select>
+      </label>
+      <label>再生速度
+        <select id="speed">
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1.0x</option>
+        </select>
+      </label>
+      <label>鎖の切断距離 <span id="tetherVal">4</span>y（推定）
+        <input id="tether" type="range" min="3" max="6" step="0.5" value="4">
+      </label>
+      <label class="check"><input id="spectate" type="checkbox"> 観戦モード（全員 AI）</label>
+      <label class="check"><input id="hint" type="checkbox" checked> ヒント表示（担当位置・安地）</label>
+    </div>
+    <div class="buttons">
+      <button id="start" class="primary">開始</button>
+      <button id="pause">一時停止</button>
+      <button id="reset">リセット</button>
+    </div>
+
+    <h2>状況</h2>
+    <div id="status" class="status">
+      <div><span class="k">時間</span><span id="stTime">-</span></div>
+      <div><span class="k">フェーズ</span><span id="stPhase">-</span></div>
+      <div><span class="k">自分のデバフ</span><span id="stDebuff">-</span></div>
+      <div class="hint"><span class="k">やること</span><span id="stHint">「開始」を押してください</span></div>
+    </div>
+
+    <div id="result" class="result hidden"></div>
+
+    <h2>ログ</h2>
+    <ul id="log" class="log"></ul>
+  </aside>
+</main>
+
+<section class="doc">
+  <h2>ギミックの流れ（このシミュレーターでの再現）</h2>
+  <ol>
+    <li><b>詠唱完了（0s）</b>：TH2人＋DPS2人に<b>光の鎖</b>（4人が輪になって繋がる）、2人に<b>ウォタガ</b>（4人頭割り）が付く。鎖で繋がった相手に近づきすぎると鎖が切れる。</li>
+    <li><b>塔・扇（9.5s）</b>：北と南に<b>塔</b>（各2人）。鎖持ち4人が塔を踏み、鎖なし4人がリーンの近くで<b>扇4本</b>（リーンに近い4人へ）を誘導する。鎖で繋がっていない2人が同じ塔に入る。</li>
+    <li><b>スピリットテイカー（14.5s）</b>：ランダム1人にガイアが飛びつき、周囲に円範囲。マーカー間に8方向散開。</li>
+    <li><b>ホーリーウィング＋ウォタガ（20.5s）</b>：リーンの<b>光った羽の側</b>が半面焼き。安地側で北/南グループに分かれて4:4頭割り。</li>
+    <li><b>宵闇の舞踏技（24s / 25.5s）</b>：1段目はガイアから<b>最も遠い人</b>、ガイアが飛びついたあと2段目は<b>最も近い人</b>。MTが無敵で外周に誘導し、他はガイアに近づかない。鎖はここまで有効。</li>
+  </ol>
+  <h2>採用している処理法（ぬけまる式 / AI の動き）</h2>
+  <pre class="macro">【光と闇の竜詩】
+北：H1H2MTST 南北で整列
+南：D1D2D3D4
+(四角型)        |(砂時計)        |扇誘導
+HーーT TとD②    | HーーT TとD①    | H   T
+│   │  入替     |  X   入替      |   ●
+D①ーD②         |D①ーD②         |←D1234→
+■頭割り：南北の4:4で処理
+※南北の片側に頭割りが偏った場合⇒扇誘導頭割りが扇誘導の前に調整
+■宵闇の舞踏技：タンク無敵で2回とも受ける</pre>
+  <ul>
+    <li>整列：北列 西← H1 H2 MT ST →東、南列 西← D1 D2 D3 D4 →東。塔は北＝TH、南＝DPS が基本。</li>
+    <li>鎖の形：<b>∞（リボン）</b>は調整なし。<b>□（四角形）</b>は右上↔右下（東側の TH と東側の DPS）を入れ替え。<b>8（砂時計）</b>は右上↔左下（東側 TH と西側 DPS）を斜めに入れ替え。結果として「鎖で繋がっていない2人」が同じ塔に入る。</li>
+    <li>鎖なし4人（扇誘導）：TH はリーンの北側（西・東）、DPS はリーンの南側（西・東）でタゲサ内に立つ。北側の人は北グループ、南側の人は南グループ。</li>
+    <li>ウォタガが北/南どちらかに偏っていたら、扇誘導の<b>前</b>に、ウォタガ持ちの扇誘導者と同じ側（西/東）の TH↔DPS が南北を入れ替える。</li>
+    <li>テイカー散開：北グループは北半分（D–4, 4–A, A–1, 1–B）、南グループは南半分のマーカー間。</li>
+    <li>羽が光っていない側へ移動し、北グループ・南グループで 4:4 頭割り。MT が無敵で宵闇の舞踏技を外周（B または D）へ誘導し2回とも受ける。</li>
+  </ul>
+  <p class="note">※ 各範囲の大きさ・タイミング・鎖の切断距離は公開情報からの推定値です。実機と異なる場合は設定で調整してください。</p>
+</section>
+
+<script src="sim.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
