@@ -8,9 +8,11 @@
   function compass(deg, r) { const a = deg * D2R; return { x: r * Math.sin(a), y: -r * Math.cos(a) }; }
 
   const WAYMARK_R = 10;
-  // 内側の円の東西南北にあるラグビー（3粒）。散会はその外側の先端
-  const RUGBY_PIPS = [5.05, 6.75, 8.5];
-  const RUGBY_TIP = RUGBY_PIPS[2];
+  // ラグビーは北南にはなく、東西＋四隅。実機どおり南北に長い3粒
+  const RUGBY_DEGS = [90, 270, 45, 135, 225, 315];
+  const RUGBY_R = 6.2;
+  const RUGBY_TIP = RUGBY_R;
+  const RUGBY_PIP_DY = 1.55;
   const MARKS = [
     ['A', 0, '#e11d48', 'circle'], ['B', 90, '#eab308', 'circle'],
     ['C', 180, '#3b82f6', 'circle'], ['D', 270, '#a855f7', 'circle'],
@@ -98,32 +100,26 @@
     ctx.fillStyle = 'rgba(245, 250, 255, 0.55)';
     ctx.fill();
 
-    for (const deg of [0, 90, 180, 270]) {
-      const a0 = toPx(compass(deg, RUGBY_PIPS[0]));
-      const a2 = toPx(compass(deg, RUGBY_PIPS[2]));
-      const mid = { x: (a0.x + a2.x) / 2, y: (a0.y + a2.y) / 2 };
-      const ang = Math.atan2(a2.y - a0.y, a2.x - a0.x);
-      ctx.save();
-      ctx.translate(mid.x, mid.y);
-      ctx.rotate(ang);
-      const hl = px((RUGBY_PIPS[2] - RUGBY_PIPS[0]) / 2 + 0.82);
-      const hw = px(0.88);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, hl, hw, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(130, 185, 235, 0.18)';
+    for (const deg of RUGBY_DEGS) {
+      const c = compass(deg, RUGBY_R);
+      const mid = toPx(c);
+      const pipR = px(0.78);
+      const halfH = px(RUGBY_PIP_DY) + pipR;
+      const halfW = pipR + px(0.18);
+      roundRect(ctx, mid.x - halfW, mid.y - halfH, halfW * 2, halfH * 2, pipR + 2);
+      ctx.fillStyle = 'rgba(70, 130, 200, 0.22)';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(200, 228, 255, 0.62)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(120, 180, 240, 0.85)';
+      ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.restore();
-      for (const rr of RUGBY_PIPS) {
-        const p = toPx(compass(deg, rr));
+      for (const dy of [-RUGBY_PIP_DY, 0, RUGBY_PIP_DY]) {
+        const p = toPx({ x: c.x, y: c.y + dy });
         ctx.beginPath();
-        ctx.arc(p.x, p.y, px(0.7), 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(165, 210, 245, 0.4)';
+        ctx.arc(p.x, p.y, pipR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(90, 190, 235, 0.7)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(220, 240, 255, 0.75)';
-        ctx.lineWidth = 1.15;
+        ctx.strokeStyle = 'rgba(180, 230, 255, 0.9)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
     }
@@ -180,7 +176,7 @@
 
   let floorCache = null, floorKey = '';
   function blitFloor(ctx, size, dpr, R, SCALE) {
-    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v8';
+    const key = size + ':' + dpr + ':' + R + ':' + SCALE + ':v10';
     if (!floorCache || floorKey !== key) {
       const c = document.createElement('canvas');
       c.width = Math.round(size * dpr);
@@ -198,5 +194,5 @@
     ctx.restore();
   }
 
-  global.EdenArena = { WAYMARK_R, RUGBY_PIPS, RUGBY_TIP, MARKS, compass, drawFloor, drawWaymarks, blitFloor };
+  global.EdenArena = { WAYMARK_R, RUGBY_DEGS, RUGBY_R, RUGBY_TIP, MARKS, compass, drawFloor, drawWaymarks, blitFloor };
 })(typeof window !== 'undefined' ? window : globalThis);

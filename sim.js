@@ -52,7 +52,7 @@
   const rowNames = row => row.slice().sort(byWest).map(i => ROLES[i]).join(' ');
 
   const SHAPE_NAME = { ribbon: 'リボン（∞）', square: '四角形（□）', hourglass: '砂時計（8）' };
-  const SPOT_NAME = { 22.5: 'A–1', 67.5: '1–B', 112.5: 'B–2', 157.5: '2–C', 202.5: 'C–3', 247.5: '3–D', 292.5: 'D–4', 337.5: '4–A' };
+  const SPOT_NAME = { 0: 'A', 45: '1（北東ラグビー）', 90: 'B（東ラグビー）', 135: '2（南東ラグビー）', 180: 'C', 225: '3（南西ラグビー）', 270: 'D（西ラグビー）', 315: '4（北西ラグビー）' };
 
   function compass(deg, r) { const a = deg * D2R; return { x: r * Math.sin(a), y: -r * Math.cos(a) }; }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -149,12 +149,12 @@
       if (dSwap !== undefined) waypoint[dSwap] = { x: Math.sign(LINEUP[dSwap].x) * 8, y: 0 };
     }
 
-    // フェーズB: テイカー散会（マーカー間・ラグビー先端）
-    const SR = 8.5;
+    // フェーズB: テイカー散会（ラグビー先端。北南は A/C、他は東西・四隅のラグビー）
+    const SR = 6.2;
     const spot = {};
     const nf = northFan.slice().sort((a, b) => A[a].x - A[b].x), sf = southFan.slice().sort((a, b) => A[a].x - A[b].x);
-    spot[nf[0]] = 292.5; spot[northPair[0]] = 337.5; spot[northPair[1]] = 22.5; spot[nf[1]] = 67.5;
-    spot[sf[0]] = 247.5; spot[southPair[0]] = 202.5; spot[southPair[1]] = 157.5; spot[sf[1]] = 112.5;
+    spot[nf[0]] = 315; spot[northPair[0]] = 0; spot[northPair[1]] = 45; spot[nf[1]] = 90;
+    spot[sf[0]] = 270; spot[southPair[0]] = 225; spot[southPair[1]] = 180; spot[sf[1]] = 135;
     for (const i of Object.keys(spot)) B[i] = compass(spot[i], SR);
     // フェーズC: 安地側で南北4:4頭割り
     const s = sc.wingCleave === 'E' ? -1 : 1;
@@ -247,7 +247,7 @@
         const f = as.fanInfo[i];
         return `鎖なし → 扇誘導。リーンのタゲサ内の${f.ns}${f.ew}に立つ（基本: TH北・DPS南）${swap}`;
       }
-      if (k === 'B') return `テイカー散会 → マーカー間 ${SPOT_NAME[as.spot[i]]} のラグビー先端へ`;
+      if (k === 'B') return `テイカー散会 → ${SPOT_NAME[as.spot[i]]} へ`;
       if (k === 'C') return `羽が光った側（${this.cleaveSideName()}）が焼かれる → 安地=${this.safeSideName()}側の${this.groupOf(i)}グループで4人頭割り`;
       if (k === 'D') {
         if (i === 0) return `宵闇の舞踏技 → 無敵を使って${this.safeSideName()}の外周（${this.safeSideName() === '東' ? 'B' : 'D'}）へ。1段目=最遠、2段目=最近をMTが受ける`;

@@ -22,7 +22,7 @@
     HEAD_R: 12.5,          // 竜頭の移動半径（砂時計・マーカーの円 10y のすぐ外側）
     HEAD_SPEED: 6.2,      // 竜頭の角速度 (deg/s)。90°到達≒14.5s（ブリザガと同時）
     HEAD_TOUCH: 2.2,
-    RUGBY_TIP: 8.5,        // 内側の円のラグビー外側先端（ぬけまる散会）
+    RUGBY_TIP: 6.2,        // 東西・四隅のラグビー（縦3粒の中央）
     LONGING_R: 5.5,       // 竜頭接触時の爆発
     PUDDLE_R: 2.0,
     PUDDLE_UNTIL: 46,
@@ -95,7 +95,7 @@
     const aeroSide = {}; aeroSide[redAero[0]] = -1; aeroSide[redAero[1]] = 1;  // 優先度高→南西
     const eruptInit = { x: pn * 14.5, y: -12.8 };
     const southWall = compass(ps < 0 ? 225 : 135, 18.8);
-    const A = compass(ps < 0 ? 225 : 135, 10);
+    const A = compass(ps < 0 ? 225 : 135, CFG.RUGBY_TIP);
     const L = compass(pn > 0 ? 45 : 315, 15.3);
     const u = unit({ x: L.x - A.x, y: L.y - A.y });
     const perp = { x: -u.y, y: u.x };
@@ -123,7 +123,7 @@
     const offs = [[2, 14.2, 11.8], [3, 11.8, 14.2], [4, 13.5, 13.5], [5, 12.2, 12.2], [6, 11.5, 14.8], [7, 14.8, 11.5]];
     offs.forEach(([i, ox, oy]) => { ret[i] = { x: cx * ox, y: cy * oy }; });
     // テイカー散開（南北波基準）
-    const base = { 0: 337.5, 1: 22.5, 2: 292.5, 3: 67.5, 4: 247.5, 5: 112.5, 6: 202.5, 7: 157.5 };
+    const base = { 0: 0, 1: 180, 2: 270, 3: 90, 4: 225, 5: 135, 6: 315, 7: 45 };
     const rot = sc.tidal2 === 'S' ? 180 : 0;
     const spread = {};
     for (const i in base) spread[i] = compass(base[i] + rot, CFG.RUGBY_TIP);
