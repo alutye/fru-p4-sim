@@ -149,13 +149,18 @@
       if (dSwap !== undefined) waypoint[dSwap] = { x: Math.sign(LINEUP[dSwap].x) * 8, y: 0 };
     }
 
-    // フェーズB: テイカー散会（ラグビー先端。北南は A/C、他は東西・四隅のラグビー）
+    // フェーズB: テイカー散会。塔担当は塔の少し左右、鎖なしは四隅ラグビー（4・1 / 3・2）
     const SR = 6.2;
     const spot = {};
     const nf = northFan.slice().sort((a, b) => A[a].x - A[b].x), sf = southFan.slice().sort((a, b) => A[a].x - A[b].x);
-    spot[nf[0]] = 315; spot[northPair[0]] = 0; spot[northPair[1]] = 45; spot[nf[1]] = 90;
-    spot[sf[0]] = 270; spot[southPair[0]] = 225; spot[southPair[1]] = 180; spot[sf[1]] = 135;
+    spot[nf[0]] = 315; spot[nf[1]] = 45;
+    spot[sf[0]] = 225; spot[sf[1]] = 135;
     for (const i of Object.keys(spot)) B[i] = compass(spot[i], SR);
+    const tw = 3.2;
+    B[northPair[0]] = { x: -tw, y: CFG.TOWERS[0].y };
+    B[northPair[1]] = { x: tw, y: CFG.TOWERS[0].y };
+    B[southPair[0]] = { x: -tw, y: CFG.TOWERS[1].y };
+    B[southPair[1]] = { x: tw, y: CFG.TOWERS[1].y };
     // フェーズC: 安地側で南北4:4頭割り
     const s = sc.wingCleave === 'E' ? -1 : 1;
     const offs = [{ x: -0.8, y: -0.8 }, { x: 0.8, y: -0.8 }, { x: -0.8, y: 0.8 }, { x: 0.8, y: 0.8 }];
@@ -247,7 +252,11 @@
         const f = as.fanInfo[i];
         return `鎖なし → 扇誘導。リーンのタゲサ内の${f.ns}${f.ew}に立つ（基本: TH北・DPS南）${swap}`;
       }
-      if (k === 'B') return `テイカー散会 → ${SPOT_NAME[as.spot[i]]} へ`;
+      if (k === 'B') {
+        if (as.northPair.includes(i)) return `テイカー散会 → 北の塔から少し${i === as.northPair[0] ? '左' : '右'}へ`;
+        if (as.southPair.includes(i)) return `テイカー散会 → 南の塔から少し${i === as.southPair[0] ? '左' : '右'}へ`;
+        return `テイカー散会 → ${SPOT_NAME[as.spot[i]]} へ`;
+      }
       if (k === 'C') return `羽が光った側（${this.cleaveSideName()}）が焼かれる → 安地=${this.safeSideName()}側の${this.groupOf(i)}グループで4人頭割り`;
       if (k === 'D') {
         if (i === 0) return `宵闇の舞踏技 → 無敵を使って${this.safeSideName()}の外周（${this.safeSideName() === '東' ? 'B' : 'D'}）へ。1段目=最遠、2段目=最近をMTが受ける`;
