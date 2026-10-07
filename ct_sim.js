@@ -68,12 +68,14 @@
   const START_POS = [0, 1, 2, 3, 4, 5, 6, 7].map(k => compass(22.5 + 45 * k, 3));
   const NORTH_SAFE = { x: 0, y: -13 };
   const PUDDLE_NOMINAL = {
-    iceB: { x: CFG.HEAD_R, y: 0 },
-    eruptB: { x: -CFG.HEAD_R, y: 0 },
+    iceB: { x: 12.4, y: 2.2 },
+    eruptB: { x: -12.4, y: 2.2 },
     unholyB: compass(135, CFG.HEAD_R),
     waterB: compass(225, CFG.HEAD_R),
   };
   const MARK_POS = { B: PUDDLE_NOMINAL.iceB, D: PUDDLE_NOMINAL.eruptB, '2': PUDDLE_NOMINAL.unholyB, '3': PUDDLE_NOMINAL.waterB };
+  // 赤ブリ待機：B/D マーカーの外側・南斜め
+  function iceWait(side) { return { x: side * 12.4, y: 2.2 }; }
 
   function genScenario(opts, rand) {
     const spells = shuffle(['aeroR', 'aeroR', 'iceR', 'iceR', 'iceB', 'waterB', 'unholyB', 'eruptB'], rand);
@@ -278,12 +280,11 @@
         const wall = { x: side * 19, y: 0 };
         const head = this.heads.find(h => h.alive && Math.sign(h.dir || 1) === Math.sign(side));
         if (!p.popped && t < T.CLAW_ICE) {
-          const wait = { x: side * CFG.RUGBY_TIP, y: 0 };
+          const wait = iceWait(side);
           if (dash && t >= T.MOST - 2) {
             if (head) return { x: head.x, y: head.y };
             return compass(side > 0 ? 55 : 305, CFG.HEAD_R);
           }
-          if (!dash && head && dist(wait, head) <= CFG.HEAD_TOUCH + 2.5) return { x: head.x, y: head.y };
           return wait;
         }
         if (dash) {
@@ -350,10 +351,10 @@
         const mark = side > 0 ? 'B' : 'D';
         if (!p.popped) {
           if (dash) {
-            if (t < T.MOST - 2) return `赤・${sp} → 爆走確定（エラプは${this.sideName(as.pn)}側）。${this.sideName(side)}（${mark}）のラグビー先端で待機。ブリザガ2秒前にスプリント`;
+            if (t < T.MOST - 2) return `赤・${sp} → 爆走確定（エラプは${this.sideName(as.pn)}側）。${mark}の外斜め下で待機。ブリザガ2秒前にスプリント`;
             return `爆走！北へ走って竜頭に当たり、未来の欠片へ（ブリザガ残${Math.max(0, this.remain(i, 'spell')).toFixed(0)}s）`;
           }
-          return `赤・${sp} → 爆走しない（エラプが前にいる）。${this.sideName(side)}（${mark}）のラグビー先端で待機。竜頭が当たりに来る`;
+          return `赤・${sp} → 爆走しない（エラプが前にいる）。${mark}の外斜め下で待機。竜頭が当たりに来る`;
         }
         if (dash) return t < T.TIDAL1_ANN ? `竜頭に当たった → 未来の欠片／北安置へ（ブリザガで味方を巻き込まない）` : `光の波（${t >= T.TIDAL1_ANN ? this.tidalName(1) + 'から' : '東西'}）を避ける`;
         if (t < T.MOST) return `ブリザガ着弾まで動かない（ドーナツ範囲に味方を巻き込まない）`;
